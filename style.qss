@@ -1,0 +1,166 @@
+/* style for main window */
+#MainWindow {
+    background-color: #050809;
+}
+
+#logo_label {
+    margin: 5px;
+}
+
+#header_widget {
+    background-color: #0a1a24;
+}
+
+#header_widget #title_label {
+    color: aliceblue;
+}
+
+#header_widget QPushButton {
+    border-radius: 8px;
+    padding: 2px;
+    width: 14px;
+    height: 14px;
+    margin: 10px 3px;
+}
+
+/* =============== header btn ==================== */
+
+#minimize_btn {
+    background-color: rgb(255, 176, 29);
+}
+
+#maximize_btn {
+    background-color: rgb(47, 255, 47);
+}
+
+#close_btn {
+    background-color: rgb(255, 66, 66);
+}
+
+/* =============== header btn hover ==================== */
+
+#minimize_btn:hover {
+    background-color: rgba(255, 176, 29, 0.5);
+}
+
+#maximize_btn:hover {
+    background-color: rgba(47, 255, 47, 0.5);
+}
+
+#close_btn:hover {
+    background-color: rgba(255, 66, 66, 0.5);
+}
+
+
+/* =============== navigation ( menu ) ==================== */
+
+#menu_widget {
+    min-width: 15em;
+}
+
+#menu_widget {
+    background-color: #061016;
+}
+
+#menu_widget QPushButton {
+    border: none;
+    border-radius: 20px;
+    text-align: left;
+    padding: 8px 0px 8px 15px;
+    color: #788596;
+    font-weight: bold;
+    margin: 2px 0px;
+}
+
+#menu_widget QPushButton:hover {
+    background-color: #1e7085;
+}
+
+#menu_widget QPushButton:checked {
+    color: whitesmoke;
+    border: 1px solid #33c6cb;
+}
+
+/* ========================= Extract start ======================= */
+#extract_page QPushButton,
+#remove_page QPushButton {
+    border: none;
+    text-align: left;
+    background-color: #1e7085;
+    padding: 7px 15px;
+    color: whitesmoke;
+    font-weight: bold;
+    border-radius: 13px;
+}
+
+#extract_page QPushButton:hover,
+#remove_page QPushButton:hover {
+    background-color: #33c6cb;
+}
+
+#extract_page QLineEdit,
+#remove_page QLineEdit {
+    padding: 8px 10px;
+    /* max-width: 50em; */
+    background-color: transparent;
+    border: 0 1px 0 0;
+    border-bottom: 1px solid #123a45;
+    color: #33c6cb;
+}
+
+#extract_page QComboBox,
+#remove_page QComboBox {
+    border: 1px solid #1e7085;
+    border-radius: 13px;
+    padding: 7px 15px;
+    color: aliceblue;
+    background-color: #1e7085;
+    font-weight: bold;
+}
+
+#extract_page QComboBox:on,
+#remove_page QComboBox:on {
+    background-color: #33c6cb;
+}
+
+#extract_page QComboBox:down-arrow,
+#remove_page QComboBox:down-arrow {
+    image: url(:/outline/icons/outline/arrow-down-circle.svg);
+    left: -10px;
+}
+
+#extract_page QComboBox:down-arrow:on,
+#remove_page QComboBox:down-arrow:on {
+    top: 1px;
+}
+
+#extract_page QComboBox:drop-down,
+#remove_page QComboBox:drop-down {
+    border: none;
+    border-top-right-radius: 13px;
+    border-bottom-right-radius: 13px;
+}
+
+/* ========================= Extract end ======================= */
+
+#footer_widget QLabel{
+    color: #1e7085;
+}
+
+#footer_widget QPushButton{
+    border: none;
+    background-color: transparent;
+    width: 20px;
+    height: 20px;
+}
+
+QTableWidget, QTableView {
+    background-color: transparent;
+    color: #33c6cb;
+}
+
+/* home page */
+QScrollBar:vertical {
+	border: none;
+	width: 0;
+}

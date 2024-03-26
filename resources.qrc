@@ -1,0 +1,100 @@
+<RCC>
+  <qresource prefix="images">
+    <file>images/istockphoto-844038932-612x612_resized.jpg</file>
+    <file>images/conceptual-business-illustration-words-metadata-260nw-1025079988.webp</file>
+    <file>images/img1 (1).png</file>
+    <file>images/metadata.jpg</file>
+    <file>images/myths-about-digital-forensics.jpg</file>
+    <file>images/preview-lightbox-ALL-ABOUT-3.png</file>
+    <file>images/search-bot-cartoon-style-artificial-intelligence-isometric-vector-vector-illustration_194782-1436.avif</file>
+    <file>images/types-of-metadata-3-1.jpg</file>
+    <file>images/docs/test_c_1.jpg</file>
+    <file>images/[removal.ai]_9835d176-5ccf-44cb-b4b5-648db9c37be2-istockphoto-844038932-612x612.jpg</file>
+    <file>images/[removal.ai]_9835d176-5ccf-44cb-b4b5-648db9c37be2-istockphoto-844038932-612x612.png</file>
+    <file>images/[removal.ai]_062356a1-ea65-4806-b43e-f0974b30aa3d-istockphoto-1129066801-612x612.png</file>
+    <file>images/1_k4tO4Alk31olCr8dG1EI9A.jpg</file>
+    <file>images/hero.jpg</file>
+    <file>images/img1 (1).jpg</file>
+    <file>images/img1 (1).png</file>
+    <file>images/img1 (2).jpg</file>
+    <file>images/istockphoto-844038932-612x612.ico</file>
+    <file>images/logo.jpg</file>
+    <file>images/Removal-373.png</file>
+  </qresource>
+  <qresource prefix="all_icons">
+    <file>icons/outline/arrow-down.svg</file>
+    <file>icons/outline/arrow-down-circle.svg</file>
+    <file>icons/outline/maximize.svg</file>
+    <file>icons/outline/maximize-2.svg</file>
+    <file>icons/outline/minimize.svg</file>
+    <file>icons/outline/minimize-2.svg</file>
+    <file>icons/outline/minus.svg</file>
+    <file>icons/outline/x.svg</file>
+    <file>icons/light/alert-circle.svg</file>
+    <file>icons/light/alert-triangle.svg</file>
+    <file>icons/light/help-circle.svg</file>
+    <file>icons/light/home.svg</file>
+    <file>icons/light/maximize.svg</file>
+    <file>icons/light/maximize-2.svg</file>
+    <file>icons/light/minimize.svg</file>
+    <file>icons/light/minimize-2.svg</file>
+    <file>icons/light/minus.svg</file>
+    <file>icons/light/search.svg</file>
+    <file>icons/light/x.svg</file>
+    <file>icons/light/zap.svg</file>
+    <file>icons/light/zap-off.svg</file>
+    <file>icons/dark/alert-circle.svg</file>
+    <file>icons/dark/alert-triangle.svg</file>
+    <file>icons/dark/help-circle.svg</file>
+    <file>icons/dark/home.svg</file>
+    <file>icons/dark/maximize.svg</file>
+    <file>icons/dark/maximize-2.svg</file>
+    <file>icons/dark/minimize.svg</file>
+    <file>icons/dark/minimize-2.svg</file>
+    <file>icons/dark/minus.svg</file>
+    <file>icons/dark/search.svg</file>
+    <file>icons/dark/x.svg</file>
+    <file>icons/dark/zap.svg</file>
+    <file>icons/dark/zap-off.svg</file>
+  </qresource>
+  <qresource prefix="light">
+    <file>icons/light/alert-circle.svg</file>
+    <file>icons/light/alert-triangle.svg</file>
+    <file>icons/light/help-circle.svg</file>
+    <file>icons/light/home.svg</file>
+    <file>icons/light/maximize.svg</file>
+    <file>icons/light/maximize-2.svg</file>
+    <file>icons/light/minimize.svg</file>
+    <file>icons/light/minimize-2.svg</file>
+    <file>icons/light/minus.svg</file>
+    <file>icons/light/search.svg</file>
+    <file>icons/light/x.svg</file>
+    <file>icons/light/zap.svg</file>
+    <file>icons/light/zap-off.svg</file>
+  </qresource>
+  <qresource prefix="dark">
+    <file>icons/dark/alert-circle.svg</file>
+    <file>icons/dark/alert-triangle.svg</file>
+    <file>icons/dark/help-circle.svg</file>
+    <file>icons/dark/home.svg</file>
+    <file>icons/dark/maximize.svg</file>
+    <file>icons/dark/maximize-2.svg</file>
+    <file>icons/dark/minimize.svg</file>
+    <file>icons/dark/minimize-2.svg</file>
+    <file>icons/dark/minus.svg</file>
+    <file>icons/dark/search.svg</file>
+    <file>icons/dark/x.svg</file>
+    <file>icons/dark/zap.svg</file>
+    <file>icons/dark/zap-off.svg</file>
+  </qresource>
+  <qresource prefix="outline">
+    <file>icons/outline/arrow-down-circle.svg</file>
+    <file>icons/outline/arrow-down.svg</file>
+    <file>icons/outline/maximize.svg</file>
+    <file>icons/outline/maximize-2.svg</file>
+    <file>icons/outline/minimize.svg</file>
+    <file>icons/outline/minimize-2.svg</file>
+    <file>icons/outline/minus.svg</file>
+    <file>icons/outline/x.svg</file>
+  </qresource>
+</RCC>
