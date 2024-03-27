@@ -1,7 +1,12 @@
 ## Gallery
 
-<img src='image1.jpg' alt='Image 1'>
-<img src='image2.jpg' alt='Image 2'>
+
+<img src='./screenshots/Screenshot from 2024-03-27 00-27-50.png' alt='screenshots'>
+<img src='./screenshots/Screenshot from 2024-03-20 21-00-06.png' alt='screenshots'>
+<img src='./screenshots/Screenshot from 2024-03-27 00-38-04.png' alt='screenshots'>
+<img src='./screenshots/Screenshot from 2024-03-27 00-43-14.png' alt='screenshots'>
+<img src='./screenshots/Screenshot from 2024-03-27 00-47-08.png' alt='screenshots'>
+
 
 ## What is EOM?
 
