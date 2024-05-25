@@ -97,7 +97,6 @@ def single_image_extractor(image: str):
         return extracted_data
 
 
-
 def multi_image_extractor(path: str, images: dict) -> dict:
     """
     This function is used to extract metadata in a list of images
@@ -135,23 +134,21 @@ def remove_image_metadata(file: str):
         # We copy the pixel data from img_data.
         img_no_exif.putdata(img_data)
 
-        # We save the new image without exif data. The keyword argument exif would've been used with the exif data if you
-        # wanted to save any. We overwrite the original image.
+        # We save the new image without exif data. The keyword argument exif would've been used with the exif data if
+        # you wanted to save any. We overwrite the original image.
         img_no_exif.save(file)
         return True
 
 
-
 def multi_remove_image_metadata(path, images):
     removed_list = {}
-    
+
     for key, value in images.items():
         # print(f"{key}: {value}")
         image_path = path + '/' + value
         removed_list[key] = remove_image_metadata(image_path)
 
     return removed_list
-
 
 # data = multi_image_extractor(
 #     {1: '../images/IMG_20240309_021833_129.jpg', 2: '../images/IMG_20240309_021833_129.jpg'})
