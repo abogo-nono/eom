@@ -1,58 +1,72 @@
-## Gallery
+# 👁️ EOM – Eye On Metadata  
+
+**EOM (Eye On Metadata)** is a free and open-source desktop application for **viewing, exporting, and removing metadata** from various media types including **images, videos, audio, and PDF files**.  
+
+Cross-platform by design, EOM runs smoothly on **Windows**, **Linux**, and **macOS**, offering a simple yet powerful interface for all your metadata management needs.
+
+## 🖼️ Gallery
+
+Take a look at the EOM interface in action:
+
+<img src='./screenshots/Screenshot from 2024-03-27 00-27-50.png' alt='EOM Screenshot'>
+<img src='./screenshots/Screenshot from 2024-03-20 21-00-06.png' alt='EOM Screenshot'>
+<img src='./screenshots/Screenshot from 2024-03-27 00-38-04.png' alt='EOM Screenshot'>
+<img src='./screenshots/Screenshot from 2024-03-27 00-43-14.png' alt='EOM Screenshot'>
+<img src='./screenshots/Screenshot from 2024-03-27 00-47-08.png' alt='EOM Screenshot'>
+
+❓ What is EOM?
+Eye On Metadata (E.O.M) is a lightweight tool that gives you full control over metadata in your image files. With a focus on privacy, transparency, and usability, EOM helps you inspect and clean metadata from your media.
 
 
-<img src='./screenshots/Screenshot from 2024-03-27 00-27-50.png' alt='screenshots'>
-<img src='./screenshots/Screenshot from 2024-03-20 21-00-06.png' alt='screenshots'>
-<img src='./screenshots/Screenshot from 2024-03-27 00-38-04.png' alt='screenshots'>
-<img src='./screenshots/Screenshot from 2024-03-27 00-43-14.png' alt='screenshots'>
-<img src='./screenshots/Screenshot from 2024-03-27 00-47-08.png' alt='screenshots'>
+> 🛠️ Note: Current support is limited to image files. Future updates will include support for videos, audio, and PDFs.
 
+It supports multiple formats and is built to be **lightweight, efficient, and user-friendly**.
 
-## What is EOM?
+## 📤 How to Extract/Display Metadata
 
-<p>
-    Eye On Metadata (E.O.M) is an open-source desktop application that displays, exports and removes
-    metadata from a media (images, videos, audio, pdf, ...). EOM is cross-platform so it can work on
-    Windows, Linux, and MacOS as well.
-</p>
+Want to view metadata? Here's how:
 
-## How do you extract/display metadata from a media?
+1. Click on **Extract**  
+2. Choose the **extraction type** (single file or directory)  
+3. Select the file(s) or folder  
+4. Click the **Extract** button  
+   
+Metadata will be displayed in an organized format.
 
-<p>Follow these steps to display metadata from one or many file</p>
-<ol>
-    <li>Click on extract</li>
-    <li>Select the extraction type</li>
-    <li>Select the file or the directory</li>
-    <li>Click on the extract button</li>
-</ol>
+## 🧹 How to Remove Metadata
 
-## How do you remove metadata from one or many files?
+To clean up media metadata:
 
-<p>To remove one metadata from media, you must follow these steps</p>
-<ol>
-    <li>Click on remove</li>
-    <li>Select the remove type</li>
-    <li>Select the file or the directory</li>
-    <li>Click on the remove button</li>
-</ol>
+1. Click on **Remove**  
+2. Choose the **remove type** (file or directory)  
+3. Select the file(s) or folder  
+4. Click on **Remove**  
 
-## How do you export metadata of file(s) to your local storage?
+EOM will strip metadata safely while keeping your files intact.
 
-<p>You can export metadata of one or many files into a file stored in your local disk</p>
-<ol>
-    <li>Click on extract</li>
-    <li>Select the extract type</li>
-    <li>Select a file or directory by clicking the browse button</li>
-    <li>Click on export</li>
-    <li>Select the path and the name of the file which will contain the data</li>
-    <li>Click on save</li>
-</ol>
+## 📁 How to Export Metadata
 
-## How do you report a bug, contribute, or suggest features?
+You can export metadata to a file on your system:
 
-<ol>
-    <li>Open this link [EOM repo](https://github.com/abogo-nono/eom)</li>
-    <li>Follow the steps presented in the readme file</li>
-</ol>
+1. Click **Extract**  
+2. Choose **extract type**  
+3. Select the file(s) or folder  
+4. Click **Export**  
+5. Set the **save path and file name**  
+6. Hit **Save**  
 
-## By Abogo Lincoln
+Your metadata will be stored in a file for later use.
+
+## 🛠️ Report a Bug / Contribute / Suggest a Feature
+
+Want to help improve EOM? We’d love your input!
+
+1. Visit the GitHub repo: [EOM GitHub Repository](https://github.com/abogo-nono/eom)  
+2. Check out the README for contribution guidelines  
+3. Open an issue for bugs or suggestions  
+4. Submit a pull request if you’d like to contribute directly  
+
+## 👤 Developed by ABOGO Lincoln
+
+Crafted with care and open-source spirit 💡  
+Check out more projects at [https://github.com/abogo-nono](https://github.com/abogo-nono)
