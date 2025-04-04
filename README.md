@@ -1,11 +1,9 @@
 # 👁️ EOM – Eye On Metadata  
-
 **EOM (Eye On Metadata)** is a free and open-source desktop application for **viewing, exporting, and removing metadata** from various media types including **images, videos, audio, and PDF files**.  
 
 Cross-platform by design, EOM runs smoothly on **Windows**, **Linux**, and **macOS**, offering a simple yet powerful interface for all your metadata management needs.
 
 ## 🖼️ Gallery
-
 Take a look at the EOM interface in action:
 
 <img src='./screenshots/Screenshot from 2024-03-27 00-27-50.png' alt='EOM Screenshot'>
@@ -23,7 +21,6 @@ Eye On Metadata (E.O.M) is a lightweight tool that gives you full control over m
 It supports multiple formats and is built to be **lightweight, efficient, and user-friendly**.
 
 ## 📤 How to Extract/Display Metadata
-
 Want to view metadata? Here's how:
 
 1. Click on **Extract**  
@@ -34,7 +31,6 @@ Want to view metadata? Here's how:
 Metadata will be displayed in an organized format.
 
 ## 🧹 How to Remove Metadata
-
 To clean up media metadata:
 
 1. Click on **Remove**  
@@ -45,7 +41,6 @@ To clean up media metadata:
 EOM will strip metadata safely while keeping your files intact.
 
 ## 📁 How to Export Metadata
-
 You can export metadata to a file on your system:
 
 1. Click **Extract**  
@@ -56,7 +51,6 @@ You can export metadata to a file on your system:
 6. Hit **Save**  
 
 Your metadata will be stored in a file for later use.
-
 ## 🛠️ Report a Bug / Contribute / Suggest a Feature
 
 Want to help improve EOM? We’d love your input!
