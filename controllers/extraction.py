@@ -9,8 +9,38 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox, QTableWidgetItem
 
 from workers import ExtractionWorker
 
-_SUPPORTED_FILTER = "Media files (*.jpg *.JPG *.jpeg *.JPEG *.png *.PNG *.tif *.tiff *.TIF *.TIFF *.pdf *.PDF)"
-_SUPPORTED_EXTS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".pdf"}
+_SUPPORTED_FILTER = (
+    "Media files "
+    "(*.jpg *.JPG *.jpeg *.JPEG *.png *.PNG *.tif *.tiff *.TIF *.TIFF *.pdf *.PDF "
+    "*.mp3 *.flac *.ogg *.oga *.opus *.wav *.aiff *.aif *.m4a *.m4b *.wma *.ape *.wv *.tta "
+    "*.mp4 *.m4v *.mkv *.webm)"
+)
+_SUPPORTED_EXTS = {
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".tif",
+    ".tiff",
+    ".pdf",
+    ".mp3",
+    ".flac",
+    ".ogg",
+    ".oga",
+    ".opus",
+    ".wav",
+    ".aiff",
+    ".aif",
+    ".m4a",
+    ".m4b",
+    ".wma",
+    ".ape",
+    ".wv",
+    ".tta",
+    ".mp4",
+    ".m4v",
+    ".mkv",
+    ".webm",
+}
 
 
 class ExtractionController:

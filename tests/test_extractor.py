@@ -148,3 +148,63 @@ def test_remove_image_metadata_no_temp_files_left(jpeg_with_exif: Path) -> None:
     after = set(parent.iterdir())
     new_files = after - before
     assert not any(f.suffix == ".tmp" for f in new_files)
+
+
+# ---------------------------------------------------------------------------
+# Audio / Video support
+# ---------------------------------------------------------------------------
+
+
+def test_audio_video_extractor_returns_tags(tmp_path: Path) -> None:
+    pytest.importorskip("mutagen")
+    from mutagen.id3 import ID3, TIT2, TPE1
+
+    path = tmp_path / "sample.mp3"
+    # MPEG1 Layer3 128kbps 44100Hz joint-stereo, no emphasis = valid silent frame.
+    # Frame size: 144 * 128000 / 44100 = 417 bytes.
+    mp3_frame = bytes([0xFF, 0xFB, 0x90, 0xC0]) + bytes(413)
+    path.write_bytes(mp3_frame * 4)
+
+    tags = ID3()
+    tags.add(TIT2(encoding=3, text="Test Title"))
+    tags.add(TPE1(encoding=3, text="Test Artist"))
+    tags.save(str(path))
+
+    data = Extractor.audio_video_extractor(str(path))
+    assert data is not None
+    assert data.get("Title") == "Test Title"
+    assert data.get("Artist") == "Test Artist"
+
+
+def test_remove_audio_video_metadata_strips_tags(tmp_path: Path) -> None:
+    pytest.importorskip("mutagen")
+    from mutagen.id3 import ID3, TIT2
+
+    path = tmp_path / "tagged.mp3"
+    mp3_frame = bytes([0xFF, 0xFB, 0x90, 0xC0]) + bytes(413)
+    path.write_bytes(mp3_frame * 4)
+
+    tags = ID3()
+    tags.add(TIT2(encoding=3, text="RemoveMe"))
+    tags.save(str(path))
+
+    assert Extractor.remove_audio_video_metadata(str(path)) is True
+    data = Extractor.audio_video_extractor(str(path))
+    assert data is None or "Title" not in data
+
+
+def test_single_image_extractor_dispatches_audio(tmp_path: Path) -> None:
+    """single_image_extractor routes .mp3 files to audio_video_extractor."""
+    pytest.importorskip("mutagen")
+    from mutagen.id3 import ID3, TIT2
+
+    path = tmp_path / "dispatch.mp3"
+    mp3_frame = bytes([0xFF, 0xFB, 0x90, 0xC0]) + bytes(413)
+    path.write_bytes(mp3_frame * 4)
+    tags = ID3()
+    tags.add(TIT2(encoding=3, text="Dispatched"))
+    tags.save(str(path))
+
+    data = Extractor.single_image_extractor(str(path))
+    assert data is not None
+    assert data.get("Title") == "Dispatched"
