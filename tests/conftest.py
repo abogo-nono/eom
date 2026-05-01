@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from PIL import Image
@@ -12,6 +13,19 @@ from PIL import Image
 # Make project root importable so `import Extractor`, `import main` work.
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+
+import exiftool_backend  # noqa: E402 — must come after sys.path insert
+
+
+@pytest.fixture(autouse=True)
+def _disable_exiftool(request):
+    """Disable the ExifTool backend for all tests by default.
+
+    Tests that explicitly need ExifTool should patch exiftool_backend._EXIFTOOL_PATH
+    themselves (which overrides this fixture's patch within the test's scope).
+    """
+    with patch.object(exiftool_backend, "_EXIFTOOL_PATH", None):
+        yield
 
 
 @pytest.fixture

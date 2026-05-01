@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import sys
 from enum import IntEnum
+from pathlib import Path
 
 from PySide6.QtCore import QFile, Qt, QTextStream
 from PySide6.QtGui import QIcon
@@ -17,6 +18,12 @@ import exiftool_backend
 from app_ui import Ui_MainWindow
 from controllers.extraction import ExtractionController
 from controllers.removal import RemovalController
+
+
+def _resource_path(rel: str) -> str:
+    """Resolve a resource path for both dev and PyInstaller frozen modes."""
+    base = Path(sys._MEIPASS) if getattr(sys, "frozen", False) else Path(__file__).parent
+    return str(base / rel)
 
 
 class PageIndex(IntEnum):
@@ -32,6 +39,7 @@ class MainWindow(QMainWindow):
 
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
+        self.setWindowIcon(QIcon(_resource_path("images/app-logo.ico")))
 
         # Frameless window — custom drag + chrome buttons.
         self.setWindowFlags(Qt.FramelessWindowHint)

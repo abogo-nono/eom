@@ -13,11 +13,28 @@ Security notes
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
+import sys
 
-# Resolved once at import time.  None means ExifTool is not in PATH.
-_EXIFTOOL_PATH: str | None = shutil.which("exiftool")
+
+def _find_exiftool() -> str | None:
+    """Locate the exiftool binary.
+
+    When running as a PyInstaller bundle, the Windows standalone
+    ``exiftool.exe`` may have been packaged inside ``sys._MEIPASS``.
+    We check there first before falling back to PATH.
+    """
+    if getattr(sys, "frozen", False):
+        bundled = os.path.join(sys._MEIPASS, "exiftool.exe")
+        if os.path.isfile(bundled):
+            return bundled
+    return shutil.which("exiftool")
+
+
+# Resolved once at import time.  None means ExifTool is not available.
+_EXIFTOOL_PATH: str | None = _find_exiftool()
 
 _TIMEOUT = 30  # seconds
 

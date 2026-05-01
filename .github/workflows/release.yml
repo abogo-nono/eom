@@ -74,6 +74,20 @@ jobs:
 
       - run: pip install -r requirements-dev.txt
 
+      - name: Bundle exiftool (Windows only)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $page = (Invoke-WebRequest -Uri 'https://exiftool.org/' -UseBasicParsing).Content
+          if ($page -match 'exiftool-(\d+\.\d+)_64\.zip') { $ver = $Matches[1] } else { exit 1 }
+          Invoke-WebRequest -Uri "https://exiftool.org/exiftool-${ver}_64.zip" -OutFile exiftool.zip
+          Expand-Archive exiftool.zip -DestinationPath et_tmp
+          Get-ChildItem et_tmp\*.exe | Select-Object -First 1 | Copy-Item -Destination exiftool.exe
+
+      - name: Generate macOS app icon (.icns)
+        if: runner.os == 'macOS'
+        run: python -c "from PIL import Image; img=Image.open('images/app-logo.ico'); img.save('images/app-logo.icns')"
+
       - name: Build with PyInstaller
         run: pyinstaller eom.spec --noconfirm --clean
 
