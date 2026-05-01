@@ -5,6 +5,11 @@ PySide6 desktop app for viewing/exporting/removing image metadata. End-user docs
 ## Stack & Run
 
 - **Python ≥3.10 + PySide6** (Qt for Python) + **Pillow** for EXIF.
+- **Optional:** [`exiftool`](https://exiftool.org) CLI — install via system package manager
+  (`sudo apt install libimage-exiftool-perl` / `brew install exiftool` / download from exiftool.org on Windows).
+  When found in PATH, EOM uses it as the primary backend for deeper metadata (XMP, IPTC, MakerNotes, RAW).
+  The UI header shows `ExifTool ✓` or `ExifTool ✗` to indicate availability.
+  The `exiftool_backend.py` module handles detection and subprocess calls (always `shell=False`).
 - Install runtime + dev deps:
   ```bash
   pip install -r requirements-dev.txt   # includes runtime + pytest + ruff + pyinstaller

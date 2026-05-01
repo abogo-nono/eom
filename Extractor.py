@@ -10,6 +10,8 @@ from PIL import Image
 from PIL.ExifTags import GPSTAGS, TAGS
 from pypdf import PdfReader, PdfWriter
 
+import exiftool_backend
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
@@ -81,10 +83,16 @@ def _safe_join(base: str, name: str) -> Path | None:
 def single_image_extractor(image_path: str) -> dict | None:
     """Extract metadata from a single image, audio, video, or PDF.
 
+    When ExifTool is available it is used as the primary backend (richer
+    XMP/IPTC/MakerNotes support).  Otherwise falls back to Pillow, mutagen,
+    or pypdf depending on the file extension.
+
     :param image_path: absolute path to the file
-    :return: dict of tag->value (includes GoogleMapLink when GPS present),
-             or None when the format is unsupported or metadata is absent.
+    :return: dict of tag->value, or None when no metadata is found.
     """
+    if exiftool_backend.is_available():
+        return exiftool_backend.extract(image_path)
+
     suffix = Path(image_path).suffix.lower()
     if suffix in _PDF_EXTENSIONS:
         return pdf_extractor(image_path)
@@ -154,11 +162,15 @@ def multi_image_extractor(path: str, images: dict) -> dict:
 def remove_image_metadata(file: str) -> bool | None:
     """Strip metadata from an image, audio, video, or PDF file in place.
 
-    Uses an atomic write (temp file + os.replace) so the original is never
-    corrupted if the process is interrupted mid-write.
+    When ExifTool is available it is used as the primary backend.  Otherwise
+    falls back to Pillow, mutagen, or pypdf depending on the file extension.
+    Uses an atomic write (temp file + os.replace) for the fallback backends.
 
     :return: True on success, None on unsupported format or I/O error.
     """
+    if exiftool_backend.is_available():
+        return exiftool_backend.remove(file)
+
     suffix = Path(file).suffix.lower()
     if suffix in _PDF_EXTENSIONS:
         return remove_pdf_metadata(file)

@@ -11,8 +11,9 @@ from enum import IntEnum
 
 from PySide6.QtCore import QFile, Qt, QTextStream
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox
+from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox
 
+import exiftool_backend
 from app_ui import Ui_MainWindow
 from controllers.extraction import ExtractionController
 from controllers.removal import RemovalController
@@ -62,6 +63,22 @@ class MainWindow(QMainWindow):
         # Feature controllers — they wire their own signals.
         self._extraction = ExtractionController(self.ui, self)
         self._removal = RemovalController(self.ui, self, self._extraction.on_export_btn_clicked)
+
+        # ExifTool status label — inserted left of the window chrome buttons.
+        self._exiftool_label = QLabel(self.ui.header_widget)
+        if exiftool_backend.is_available():
+            self._exiftool_label.setText("ExifTool ✓")
+            self._exiftool_label.setStyleSheet("color: #4caf50; font-size: 11px; padding-right: 8px;")
+        else:
+            self._exiftool_label.setText("ExifTool ✗")
+            self._exiftool_label.setStyleSheet("color: #ff9800; font-size: 11px; padding-right: 8px;")
+        self._exiftool_label.setToolTip(
+            "ExifTool is installed and active as the primary metadata backend."
+            if exiftool_backend.is_available()
+            else "ExifTool not found in PATH. Using built-in backends (Pillow / mutagen / pypdf)."
+        )
+        # Insert before the chrome-buttons layout (index 1 in horizontalLayout_6).
+        self.ui.horizontalLayout_6.insertWidget(1, self._exiftool_label)
 
     # ------------------------------------------------------------------
     # Window chrome
