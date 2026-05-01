@@ -13,31 +13,32 @@ def convert_decimal_degrees(degree, minutes, seconds, direction):
 def create_google_maps_url(gps_coords):
     # Exif data stores coordinates in degree/minutes/seconds format. To convert to decimal degrees.
     # We extract the data from the dictionary we sent to this function for latitudinal data.
-    dec_deg_lat = convert_decimal_degrees(float(gps_coords["lat"][0]), float(gps_coords["lat"][1]),
-                                          float(gps_coords["lat"][2]), gps_coords["lat_ref"])
+    dec_deg_lat = convert_decimal_degrees(
+        float(gps_coords["lat"][0]), float(gps_coords["lat"][1]), float(gps_coords["lat"][2]), gps_coords["lat_ref"]
+    )
     # We extract the data from the dictionary we sent to this function for longitudinal data.
-    dec_deg_lon = convert_decimal_degrees(float(gps_coords["lon"][0]), float(gps_coords["lon"][1]),
-                                          float(gps_coords["lon"][2]), gps_coords["lon_ref"])
+    dec_deg_lon = convert_decimal_degrees(
+        float(gps_coords["lon"][0]), float(gps_coords["lon"][1]), float(gps_coords["lon"][2]), gps_coords["lon_ref"]
+    )
     # We return a search string which can be used in Google Maps
     return f"https://maps.google.com/?q={dec_deg_lat},{dec_deg_lon}"
 
 
 def single_image_extractor(image: str):
     """
-        This function is used to extract metadata in a single jpg image
-        :param image: the file to process
-        :return: extracted data
+    This function is used to extract metadata in a single jpg image
+    :param image: the file to process
+    :return: extracted data
     """
 
     try:
         # Open the image file. We open the file in binary format for reading.
         image = Image.open(image)
-    except IOError:
+    except OSError:
         print("File format not supported!")
         return None
 
     if image.format in ['JPEG', 'JPG']:
-
         # create a dictionary to store extracted data
         extracted_data = {}
 
@@ -120,7 +121,7 @@ def multi_image_extractor(path: str, images: dict) -> dict:
 def remove_image_metadata(file: str):
     try:
         image = Image.open(file)
-    except IOError:
+    except OSError:
         print("File format not supported!")
         return None
 
@@ -149,6 +150,7 @@ def multi_remove_image_metadata(path, images):
         removed_list[key] = remove_image_metadata(image_path)
 
     return removed_list
+
 
 # data = multi_image_extractor(
 #     {1: '../images/IMG_20240309_021833_129.jpg', 2: '../images/IMG_20240309_021833_129.jpg'})

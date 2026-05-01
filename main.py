@@ -1,16 +1,17 @@
 import os
 import sys
-from PySide6.QtWidgets import QMainWindow, QApplication, QFileDialog, QTableWidgetItem, QMessageBox
-from PySide6.QtGui import QPixmap, QIcon
-from PySide6.QtCore import QFileInfo, QFile, QTextStream, Qt, QRect
-import Extractor
 
+from PySide6.QtCore import QFile, Qt, QTextStream
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QApplication, QFileDialog, QMainWindow, QMessageBox, QTableWidgetItem
+
+import Extractor
 from app_ui import Ui_MainWindow
 
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
-        super(MainWindow, self).__init__()
+        super().__init__()
 
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
@@ -78,13 +79,17 @@ class MainWindow(QMainWindow):
 
     def on_about_btn_clicked(self):
         # QMessageBox.aboutQt(self, 'About E.O.M')
-        QMessageBox.about(self, 'About E.O.M', """
+        QMessageBox.about(
+            self,
+            'About E.O.M',
+            """
 <p><a name="intro-section" /><span style=" font-size:x-large; font-weight:600;">W</span><span
                 style=" font-size:x-large; font-weight:600;">hat is EOM?</span></p>
         <p>Eye On Metadata (E.O.M) is an open-source desktop application that displays, exports and removes metadata
             from a media (images, videos, audio, pdf, ...). EOM is cross-platform so it can work on Windows, Linux, and
             MacOS as well. EOM is developed in February 2024 by <a href="https://github.com/abogo-nono">Abogo Lincoln</a> a software engineer and cybersecurity student</p>
-        """)
+        """,
+        )
 
     def on_extract_browse_btn_clicked(self):
         if self.ui.extraction_type.currentIndex() == 0:
@@ -122,8 +127,11 @@ class MainWindow(QMainWindow):
 
         # check if there is a selected image
         if not path:
-            QMessageBox.warning(self, 'Data Extract Error',
-                                'Select a file / directory first, before extract data contained in image(s)!')
+            QMessageBox.warning(
+                self,
+                'Data Extract Error',
+                'Select a file / directory first, before extract data contained in image(s)!',
+            )
             return
 
         # check the type of extraction
@@ -200,7 +208,7 @@ class MainWindow(QMainWindow):
                         file.write(line)
 
                 QMessageBox.information(self, 'Data Exported Successfully', 'Data save at: ' + file_path)
-            except:
+            except OSError:
                 QMessageBox.warning(self, 'Data Exported Error', 'Error while saving the file!')
         else:
             QMessageBox.warning(self, 'Data Exported Error', 'You must enter a valid filename to stored data')
@@ -270,8 +278,9 @@ class MainWindow(QMainWindow):
             self.on_export_btn_clicked()
             self.on_remove_btn_clicked()
         else:
-            QMessageBox.warning(self, 'Data Exported Error',
-                                'Error: select image or directory path to extract data and export')
+            QMessageBox.warning(
+                self, 'Data Exported Error', 'Error: select image or directory path to extract data and export'
+            )
 
     def on_menu_home_btn_toggled(self):
         self.ui.stackedWidget.setCurrentIndex(0)
