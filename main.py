@@ -38,6 +38,7 @@ class MainWindow(QMainWindow):
         self.old_pos = None
         self.ui.header_widget.mousePressEvent = self.mouse_press_event
         self.ui.header_widget.mouseMoveEvent = self.mouse_move_event
+        self.ui.header_widget.mouseReleaseEvent = self.mouse_release_event
 
         self.update_maximize_button_icon()
         self.ui.minimize_btn.clicked.connect(self.showMinimized)
@@ -67,14 +68,26 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def mouse_press_event(self, event) -> None:
-        if event.button() == Qt.LeftButton and self.draggable:
+        # startSystemMove() delegates to the window manager — works on Wayland,
+        # X11, Windows, and macOS. Falls back to manual delta on unsupported
+        # platforms (e.g. offscreen in tests).
+        if (
+            event.button() == Qt.LeftButton
+            and self.draggable
+            and (not self.windowHandle() or not self.windowHandle().startSystemMove())
+        ):
             self.old_pos = event.globalPosition().toPoint()
 
     def mouse_move_event(self, event) -> None:
+        # Only reached when startSystemMove() was unavailable (fallback path).
         if self.old_pos:
             delta = event.globalPosition().toPoint() - self.old_pos
             self.move(self.pos() + delta)
             self.old_pos = event.globalPosition().toPoint()
+
+    def mouse_release_event(self, event) -> None:
+        if event.button() == Qt.LeftButton:
+            self.old_pos = None
 
     def toggle_maximized(self) -> None:
         if self.isMaximized():
