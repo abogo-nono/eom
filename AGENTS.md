@@ -4,16 +4,34 @@ PySide6 desktop app for viewing/exporting/removing image metadata. End-user docs
 
 ## Stack & Run
 
-- **Python + PySide6** (Qt for Python) + **Pillow** for EXIF.
-- No `requirements.txt`. Install deps manually:
+- **Python ≥3.10 + PySide6** (Qt for Python) + **Pillow** for EXIF.
+- Install runtime + dev deps:
   ```bash
-  pip install PySide6 Pillow
+  pip install -r requirements-dev.txt   # includes runtime + pytest + ruff + pyinstaller
   ```
 - Run from the project root (paths to `style.qss` are relative):
   ```bash
   python main.py
   ```
 - A `.venv/` already exists in the repo root — activate it before running.
+
+## Test / Lint / Build
+
+- **Tests** (Qt runs headless via `QT_QPA_PLATFORM=offscreen`, set by `tests/conftest.py`):
+  ```bash
+  pytest                # runs tests/ with coverage config from pyproject.toml
+  ```
+- **Lint / format** (ruff is configured in `pyproject.toml`; generated files excluded):
+  ```bash
+  ruff check .
+  ruff format .
+  ```
+- **Standalone binary** (PyInstaller, single-file, windowed):
+  ```bash
+  pyinstaller eom.spec --noconfirm --clean   # → dist/eom (or dist/eom.exe)
+  ```
+- **CI**: [.github/workflows/ci.yml](.github/workflows/ci.yml) runs ruff + pytest on Linux/Windows/macOS × Python 3.10–3.12. Linux jobs install Qt runtime libs (`libegl1`, `libxkbcommon0`, `libxcb-cursor0`, `libgl1`, `libdbus-1-3`).
+- **Releases**: push a `v*` tag → [.github/workflows/release.yml](.github/workflows/release.yml) builds PyInstaller artifacts for all 3 OSes and attaches zips to a GitHub Release.
 
 ## Architecture (3 hand-written files)
 
@@ -43,5 +61,5 @@ PySide6 desktop app for viewing/exporting/removing image metadata. End-user docs
 - **Handler naming**: `on_<widget>_<signal>` (e.g. `on_extract_btn_clicked`). Follow this when adding handlers.
 - **File naming is inconsistent** (`Extractor.py` capitalized, `main.py` / `app_ui.py` lowercase). Match the existing case of the file you touch rather than renaming.
 - `on_menu_docs_btn_toggled` currently routes to stacked index `0` (same as home) — known quirk, confirm intent before "fixing".
-- Directory-mode handlers call `os.listdir(path)` with no extension filter; non-JPEG files will fall through `Extractor` returning `None`. Keep that contract (functions return `None`/falsy on unsupported formats).
-- No tests, no linter config, no CI. Manual smoke test = run `python main.py` and exercise Extract / Remove on a sample JPEG with EXIF.
+- Directory-mode handlers call `os.listdir(path)` with no extension filter; non-JPEG files will fall through `Extractor` returning `None`. Keep that contract (functions return `None`/falsy on unsupported formats) — [tests/test_extractor.py](tests/test_extractor.py) asserts it.
+- Manual smoke test on top of `pytest` = run `python main.py` and exercise Extract / Remove on a sample JPEG with EXIF.
