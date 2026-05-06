@@ -51,16 +51,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # windows-2019: MSVC 2019 CRT (vcruntime140.dll) ships with Windows 10+
-          - os: windows-2019
+          # windows-latest = Windows Server 2022; binary runs on Windows 10+
+          - os: windows-latest
             artifact: eom-windows-x86_64
             ext: ".exe"
-          # macos-13: last Intel runner → x86_64 binary, runs on macOS 12+ (Monterey)
-          - os: macos-13
-            artifact: eom-macos-x86_64
-            ext: ""
-          # macos-14: Apple Silicon runner → arm64 binary, runs on macOS 14+ (Sonoma)
-          - os: macos-14
+          # macos-latest = Apple Silicon (arm64); runs on macOS 14+ (Sonoma)
+          - os: macos-latest
             artifact: eom-macos-arm64
             ext: ""
     runs-on: ${{ matrix.os }}
