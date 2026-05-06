@@ -1,0 +1,42 @@
+[project]
+name = "eom"
+version = "0.1.0"
+description = "Eye On Metadata - desktop app to view, export, and remove image metadata."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Abogo Lincoln" }]
+dependencies = [
+    "PySide6>=6.6,<7",
+    "Pillow>=10,<13",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-qt>=4.4",
+    "pytest-cov>=5",
+    "ruff>=0.6",
+    "pyinstaller>=6.10",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+# Skip generated Qt files
+extend-exclude = ["app_ui.py", "resources_rc.py", "app - Copy.ui", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = [
+    "E501",  # line length handled by formatter
+    "B008",  # function calls in default args (Qt patterns)
+]
+
+[tool.ruff.format]
+quote-style = "preserve"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+qt_api = "pyside6"

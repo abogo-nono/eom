@@ -1,155 +1,355 @@
+from __future__ import annotations
+
+import os
+import shutil
+import tempfile
+from pathlib import Path
+
+from mutagen import File as MutagenFile
 from PIL import Image
 from PIL.ExifTags import GPSTAGS, TAGS
+from pypdf import PdfReader, PdfWriter
+
+import exiftool_backend
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+# Image formats handled via Pillow EXIF API.
+_IMAGE_FORMATS = ("JPEG", "JPG", "PNG", "TIFF", "TIF")
+# PDF is handled separately via pypdf.
+_PDF_EXTENSIONS = {".pdf"}
+# Audio/video formats handled via mutagen.
+_AUDIO_EXTENSIONS = {
+    ".mp3",
+    ".flac",
+    ".ogg",
+    ".oga",
+    ".opus",
+    ".wav",
+    ".aiff",
+    ".aif",
+    ".m4a",
+    ".m4b",
+    ".wma",
+    ".ape",
+    ".wv",
+    ".tta",
+}
+_VIDEO_EXTENSIONS = {".mp4", ".m4v", ".mkv", ".webm"}
+_AUDIO_VIDEO_EXTENSIONS = _AUDIO_EXTENSIONS | _VIDEO_EXTENSIONS
 
 
-def convert_decimal_degrees(degree, minutes, seconds, direction):
-    decimal_degrees = degree + minutes / 60 + seconds / 3600
-    # A value of "S" for South or West will be multiplied by -1
-    if direction == "S" or direction == "W":
+def _convert_decimal_degrees(degree: float, minutes: float, seconds: float, direction: str) -> float:
+    """Convert DMS coordinates to decimal degrees."""
+    decimal_degrees = float(degree) + float(minutes) / 60 + float(seconds) / 3600
+    if direction in ("S", "W"):
         decimal_degrees *= -1
     return decimal_degrees
 
 
-def create_google_maps_url(gps_coords):
-    # Exif data stores coordinates in degree/minutes/seconds format. To convert to decimal degrees.
-    # We extract the data from the dictionary we sent to this function for latitudinal data.
-    dec_deg_lat = convert_decimal_degrees(float(gps_coords["lat"][0]), float(gps_coords["lat"][1]),
-                                          float(gps_coords["lat"][2]), gps_coords["lat_ref"])
-    # We extract the data from the dictionary we sent to this function for longitudinal data.
-    dec_deg_lon = convert_decimal_degrees(float(gps_coords["lon"][0]), float(gps_coords["lon"][1]),
-                                          float(gps_coords["lon"][2]), gps_coords["lon_ref"])
-    # We return a search string which can be used in Google Maps
+def _create_google_maps_url(gps_coords: dict) -> str | None:
+    """Return a Google Maps URL from a GPS coordinate dict, or None on any error."""
+    try:
+        lat = gps_coords["lat"]
+        lon = gps_coords["lon"]
+        dec_deg_lat = _convert_decimal_degrees(float(lat[0]), float(lat[1]), float(lat[2]), gps_coords["lat_ref"])
+        dec_deg_lon = _convert_decimal_degrees(float(lon[0]), float(lon[1]), float(lon[2]), gps_coords["lon_ref"])
+    except (KeyError, TypeError, ValueError, IndexError):
+        return None
     return f"https://maps.google.com/?q={dec_deg_lat},{dec_deg_lon}"
 
 
-def single_image_extractor(image: str):
-    """
-        This function is used to extract metadata in a single jpg image
-        :param image: the file to process
-        :return: extracted data
-    """
+def _safe_join(base: str, name: str) -> Path | None:
+    """Return the resolved path for *base/name* only if it stays inside *base*.
 
+    Prevents path-traversal attacks (e.g. name='../../etc/passwd').
+    """
+    base_path = Path(base).resolve()
+    candidate = (base_path / name).resolve()
     try:
-        # Open the image file. We open the file in binary format for reading.
-        image = Image.open(image)
-    except IOError:
-        print("File format not supported!")
+        candidate.relative_to(base_path)
+        return candidate
+    except ValueError:
         return None
 
-    if image.format in ['JPEG', 'JPG']:
 
-        # create a dictionary to store extracted data
-        extracted_data = {}
-
-        # gps coordonate
-        gps_coords = {}
-
-        # The ._getexif() method returns a dictionary. .items() method returns a list of all dictionary keys and values.
-        gps_coords = {}
-
-        if image._getexif() is None:
-            print(f"{image} contains no exif data.")
-            return None
-
-        for tag, value in image._getexif().items():
-            # If you print the tag without running it through the TAGS.get() method you'll get numerical values for
-            # every tag. We want the tags in human-readable form. You can see the tags and the associated decimal
-            # number in the exif standard here: https://exiv2.org/tags.html
-            tag_name = TAGS.get(tag)
-
-            if tag_name:
-                # print(tag_name)
-                extracted_data[tag_name] = value
-
-            if tag_name == "GPSInfo":
-                for key, val in value.items():
-                    # We add Latitude data to the gps_coord dictionary which we initialized in line 110.
-                    if GPSTAGS.get(key) == "GPSLatitude":
-                        gps_coords["lat"] = val
-
-                    # We add Longitude data to the gps_coord dictionary which we initialized in line 110.
-                    elif GPSTAGS.get(key) == "GPSLongitude":
-                        gps_coords["lon"] = val
-
-                    # We add Latitude reference data to the gps_coord dictionary which we initialized in line 110.
-                    elif GPSTAGS.get(key) == "GPSLatitudeRef":
-                        gps_coords["lat_ref"] = val
-
-                    # We add Longitude reference data to the gps_coord dictionary which we initialized in line 110.
-                    elif GPSTAGS.get(key) == "GPSLongitudeRef":
-                        gps_coords["lon_ref"] = val
-
-        # We print the longitudinal and latitudinal data which has been formatted for Google Maps. We only do so if
-        # the GPS Coordinates exists.
-        if gps_coords:
-            google_map_link = create_google_maps_url(gps_coords)
-            # print(google_map_link)
-
-            # add google map url to the extracted data
-            extracted_data['GoogleMapLink'] = google_map_link
-
-            gps_coords_string = []
-            for item in gps_coords.values():
-                gps_coords_string.append(item)
-
-            extracted_data['GPSInfo'] = gps_coords_string
-
-        return extracted_data
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
 
 
-def multi_image_extractor(path: str, images: dict) -> dict:
+def single_image_extractor(image_path: str) -> dict | None:
+    """Extract metadata from a single image, audio, video, or PDF.
+
+    When ExifTool is available it is used as the primary backend (richer
+    XMP/IPTC/MakerNotes support).  Otherwise falls back to Pillow, mutagen,
+    or pypdf depending on the file extension.
+
+    :param image_path: absolute path to the file
+    :return: dict of tag->value, or None when no metadata is found.
     """
-    This function is used to extract metadata in a list of images
+    if exiftool_backend.is_available():
+        return exiftool_backend.extract(image_path)
 
-    :param path   : directory of the images
-    :param images : list of image to extract data
-    :return       : dictionary of metadata of all image in the list
-    """
+    suffix = Path(image_path).suffix.lower()
+    if suffix in _PDF_EXTENSIONS:
+        return pdf_extractor(image_path)
+    if suffix in _AUDIO_VIDEO_EXTENSIONS:
+        return audio_video_extractor(image_path)
 
-    # dictionary that contain metadata of all the image in the list of images passed
-    extracted_data = {}
+    try:
+        image = Image.open(image_path)
+    except OSError:
+        return None
 
-    for key, value in images.items():
-        # print(f"{key}: {value}")
-        image_path = path + '/' + value
-        extracted_data[key] = single_image_extractor(image_path)
+    if image.format not in _IMAGE_FORMATS:
+        return None
+
+    exif = image.getexif()  # public Pillow API (>=9.2); never returns None
+    if not exif:
+        return None
+
+    extracted_data: dict = {}
+    gps_coords: dict = {}
+
+    for tag, value in exif.items():
+        tag_name = TAGS.get(tag)
+        if not tag_name:
+            continue
+
+        extracted_data[tag_name] = value
+
+        if tag_name == "GPSInfo":
+            for key, val in value.items():
+                gps_tag = GPSTAGS.get(key)
+                if gps_tag == "GPSLatitude":
+                    gps_coords["lat"] = val
+                elif gps_tag == "GPSLongitude":
+                    gps_coords["lon"] = val
+                elif gps_tag == "GPSLatitudeRef":
+                    gps_coords["lat_ref"] = val
+                elif gps_tag == "GPSLongitudeRef":
+                    gps_coords["lon_ref"] = val
+
+    if gps_coords:
+        google_map_link = _create_google_maps_url(gps_coords)
+        if google_map_link:
+            extracted_data["GoogleMapLink"] = google_map_link
+        extracted_data["GPSInfo"] = list(gps_coords.values())
 
     return extracted_data
 
 
-def remove_image_metadata(file: str):
+def multi_image_extractor(path: str, images: dict) -> dict:
+    """Extract metadata from multiple images in a directory.
+
+    :param path:   directory containing the images
+    :param images: mapping of {name: filename}
+    :return:       mapping of {name: metadata_dict_or_None}
+    """
+    extracted_data: dict = {}
+    for key, value in images.items():
+        safe_path = _safe_join(path, value)
+        if safe_path is None:
+            extracted_data[key] = None
+            continue
+        extracted_data[key] = single_image_extractor(str(safe_path))
+    return extracted_data
+
+
+def remove_image_metadata(file: str) -> bool | None:
+    """Strip metadata from an image, audio, video, or PDF file in place.
+
+    When ExifTool is available it is used as the primary backend.  Otherwise
+    falls back to Pillow, mutagen, or pypdf depending on the file extension.
+    Uses an atomic write (temp file + os.replace) for the fallback backends.
+
+    :return: True on success, None on unsupported format or I/O error.
+    """
+    if exiftool_backend.is_available():
+        return exiftool_backend.remove(file)
+
+    suffix = Path(file).suffix.lower()
+    if suffix in _PDF_EXTENSIONS:
+        return remove_pdf_metadata(file)
+    if suffix in _AUDIO_VIDEO_EXTENSIONS:
+        return remove_audio_video_metadata(file)
+
     try:
         image = Image.open(file)
-    except IOError:
-        print("File format not supported!")
+    except OSError:
         return None
 
-    if image.format in ['JPEG', 'JPG']:
-        # We get the exif data from the which we'll overwrite
-        img_data = list(image.getdata())
+    if image.format not in _IMAGE_FORMATS:
+        return None
 
-        # We create a new Image object. We initialise it with the same mode and size as the original image.
-        img_no_exif = Image.new(image.mode, image.size)
+    # Determine save format — preserve original type so PNG stays PNG etc.
+    save_format = image.format if image.format in _IMAGE_FORMATS else "JPEG"
 
-        # We copy the pixel data from img_data.
-        img_no_exif.putdata(img_data)
+    # Copy pixel data without EXIF (paste copies pixels only, not metadata).
+    img_no_exif = Image.new(image.mode, image.size)
+    img_no_exif.paste(image)
 
-        # We save the new image without exif data. The keyword argument exif would've been used with the exif data if
-        # you wanted to save any. We overwrite the original image.
-        img_no_exif.save(file)
-        return True
+    file_path = Path(file)
+    tmp_name: str | None = None
+    try:
+        tmp_fd, tmp_name = tempfile.mkstemp(dir=file_path.parent, suffix=".tmp")
+        os.close(tmp_fd)
+        img_no_exif.save(tmp_name, format=save_format)
+        os.replace(tmp_name, file)
+    except OSError:
+        if tmp_name:
+            Path(tmp_name).unlink(missing_ok=True)
+        return None
+
+    return True
 
 
-def multi_remove_image_metadata(path, images):
-    removed_list = {}
+def multi_remove_image_metadata(path: str, images: dict) -> dict:
+    """Remove metadata from multiple images in a directory.
 
+    :param path:   directory containing the images
+    :param images: mapping of {name: filename}
+    :return:       mapping of {name: True_or_None}
+    """
+    removed_list: dict = {}
     for key, value in images.items():
-        # print(f"{key}: {value}")
-        image_path = path + '/' + value
-        removed_list[key] = remove_image_metadata(image_path)
-
+        safe_path = _safe_join(path, value)
+        if safe_path is None:
+            removed_list[key] = None
+            continue
+        removed_list[key] = remove_image_metadata(str(safe_path))
     return removed_list
 
-# data = multi_image_extractor(
-#     {1: '../images/IMG_20240309_021833_129.jpg', 2: '../images/IMG_20240309_021833_129.jpg'})
-# print(f"{data}")
+
+# ---------------------------------------------------------------------------
+# PDF support
+# ---------------------------------------------------------------------------
+
+
+def pdf_extractor(pdf_path: str) -> dict | None:
+    """Extract document metadata from a PDF file.
+
+    :param pdf_path: absolute path to the PDF file
+    :return: dict of metadata fields, or None on error / no metadata.
+    """
+    try:
+        reader = PdfReader(pdf_path)
+        meta = reader.metadata
+    except Exception:  # noqa: BLE001  — pypdf can raise various exceptions
+        return None
+
+    if not meta:
+        return None
+
+    return {k.lstrip("/"): str(v) for k, v in meta.items() if v}
+
+
+def remove_pdf_metadata(pdf_path: str) -> bool | None:
+    """Remove all document metadata from a PDF file in place.
+
+    Uses an atomic write so the original is never corrupted on error.
+
+    :return: True on success, None on error.
+    """
+    try:
+        reader = PdfReader(pdf_path)
+        writer = PdfWriter()
+        for page in reader.pages:
+            writer.add_page(page)
+        # PdfWriter starts with empty metadata by default — no explicit clear needed.
+
+        file_path = Path(pdf_path)
+        tmp_fd, tmp_name = tempfile.mkstemp(dir=file_path.parent, suffix=".tmp")
+        try:
+            os.close(tmp_fd)
+            with open(tmp_name, "wb") as f:
+                writer.write(f)
+            os.replace(tmp_name, pdf_path)
+        except OSError:
+            Path(tmp_name).unlink(missing_ok=True)
+            return None
+    except Exception:  # noqa: BLE001
+        return None
+
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Audio / Video support  (mutagen)
+# ---------------------------------------------------------------------------
+
+
+def audio_video_extractor(path: str) -> dict | None:
+    """Extract tags and stream info from an audio or video file.
+
+    Uses mutagen with easy=True so tag keys are normalised to lowercase common
+    names (e.g. 'title', 'artist').  Technical stream properties (duration,
+    bitrate, sample rate, channels) are appended when available.
+
+    :param path: absolute path to the file
+    :return: dict of field->value, or None when the format is unsupported or
+             the file contains no metadata at all.
+    """
+    try:
+        f = MutagenFile(path, easy=True)
+    except Exception:  # noqa: BLE001
+        return None
+
+    if f is None:
+        return None
+
+    data: dict = {}
+
+    if f.tags:
+        for key, value in f.tags.items():
+            data[key.title()] = ", ".join(str(v) for v in value) if isinstance(value, list) else str(value)
+
+    info = f.info
+    if hasattr(info, "length"):
+        data["Duration"] = f"{info.length:.2f}s"
+    if hasattr(info, "bitrate") and info.bitrate:
+        data["Bitrate"] = f"{info.bitrate} bps"
+    if hasattr(info, "sample_rate") and info.sample_rate:
+        data["SampleRate"] = f"{info.sample_rate} Hz"
+    if hasattr(info, "channels") and info.channels:
+        data["Channels"] = str(info.channels)
+
+    return data or None
+
+
+def remove_audio_video_metadata(path: str) -> bool | None:
+    """Strip all tags from an audio or video file in place.
+
+    Copies the file to a temp location, strips tags there, then atomically
+    replaces the original — so the original is never corrupted on error.
+
+    :return: True on success, None on unsupported format or I/O error.
+    """
+    try:
+        f = MutagenFile(path, easy=True)
+    except Exception:  # noqa: BLE001
+        return None
+
+    if f is None:
+        return None
+
+    file_path = Path(path)
+    tmp_name: str | None = None
+    try:
+        tmp_fd, tmp_name = tempfile.mkstemp(dir=file_path.parent, suffix=".tmp")
+        os.close(tmp_fd)
+        shutil.copy2(path, tmp_name)
+        tmp_f = MutagenFile(tmp_name, easy=True)
+        if tmp_f is not None:
+            tmp_f.delete()
+            tmp_f.save()
+        os.replace(tmp_name, path)
+    except Exception:  # noqa: BLE001
+        if tmp_name:
+            Path(tmp_name).unlink(missing_ok=True)
+        return None
+
+    return True
