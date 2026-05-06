@@ -6,13 +6,23 @@ and instantiation of the two feature controllers.
 
 from __future__ import annotations
 
+import platform
 import sys
 from enum import IntEnum
 from pathlib import Path
 
-from PySide6.QtCore import QFile, Qt, QTextStream
-from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox
+from PySide6.QtCore import QFile, Qt, QTextStream, QTimer, QUrl
+from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon
+from PySide6.QtWidgets import (
+    QApplication,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QPlainTextEdit,
+    QPushButton,
+    QVBoxLayout,
+)
 
 import exiftool_backend
 from app_ui import Ui_MainWindow
@@ -71,6 +81,7 @@ class MainWindow(QMainWindow):
         # Feature controllers — they wire their own signals.
         self._extraction = ExtractionController(self.ui, self)
         self._removal = RemovalController(self.ui, self, self._extraction.on_export_btn_clicked)
+        self._setup_report_page()
 
         # ExifTool status label — inserted left of the window chrome buttons.
         self._exiftool_label = QLabel(self.ui.header_widget)
@@ -158,6 +169,90 @@ Linux, macOS) and was developed by
 
     def on_menu_report_btn_toggled(self) -> None:
         self.ui.stackedWidget.setCurrentIndex(PageIndex.REPORT)
+
+    # ------------------------------------------------------------------
+    # Report page (built programmatically — app_ui.py page is empty)
+    # ------------------------------------------------------------------
+
+    def _setup_report_page(self) -> None:
+        page = self.ui.report_page
+
+        # Remove the stray generated label.
+        for child in page.findChildren(QLabel):
+            child.deleteLater()
+
+        root = QVBoxLayout(page)
+        root.setContentsMargins(40, 30, 40, 30)
+        root.setSpacing(14)
+
+        title = QLabel("Report a Bug")
+        title.setStyleSheet("font-size: 18px; font-weight: 600;")
+        root.addWidget(title)
+
+        hint = QLabel(
+            "Include the system info below when opening a bug report \u2014 "
+            "it helps reproduce the problem faster.\n"
+            "Click \u2018Open GitHub Issue\u2019 to go straight to the new-issue form."
+        )
+        hint.setWordWrap(True)
+        hint.setStyleSheet("color: #aaa; font-size: 13px;")
+        root.addWidget(hint)
+
+        info_heading = QLabel("System info")
+        info_heading.setStyleSheet("font-size: 12px; color: #888; margin-top: 6px;")
+        root.addWidget(info_heading)
+
+        self._report_info_box = QPlainTextEdit(self._report_system_info())
+        self._report_info_box.setReadOnly(True)
+        self._report_info_box.setMaximumHeight(110)
+        self._report_info_box.setStyleSheet(
+            "font-family: monospace; font-size: 12px; background: #131a1a; border-radius: 4px; padding: 8px;"
+        )
+        root.addWidget(self._report_info_box)
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(10)
+
+        open_btn = QPushButton("Open GitHub Issue")
+        open_btn.setCursor(Qt.PointingHandCursor)
+        open_btn.setStyleSheet(
+            "QPushButton { background: #00bcd4; color: #0b0f0f; font-weight: 600;"
+            " padding: 8px 18px; border-radius: 4px; border: none; }"
+            "QPushButton:hover { background: #00acc1; }"
+        )
+        open_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/abogo-nono/eom/issues/new")))
+
+        self._copy_btn = QPushButton("Copy System Info")
+        self._copy_btn.setCursor(Qt.PointingHandCursor)
+        self._copy_btn.setStyleSheet(
+            "QPushButton { background: transparent; color: #00bcd4; font-weight: 500;"
+            " padding: 8px 18px; border-radius: 4px; border: 1px solid #00bcd4; }"
+            "QPushButton:hover { background: rgba(0, 188, 212, 0.1); }"
+        )
+        self._copy_btn.clicked.connect(self._on_copy_report_info)
+
+        btn_row.addWidget(open_btn)
+        btn_row.addWidget(self._copy_btn)
+        btn_row.addStretch()
+        root.addLayout(btn_row)
+        root.addStretch()
+
+    @staticmethod
+    def _report_system_info() -> str:
+        exiftool_status = exiftool_backend._EXIFTOOL_PATH if exiftool_backend.is_available() else "not found"
+        return "\n".join(
+            [
+                "EOM version : v2",
+                f"Python      : {sys.version.split()[0]}",
+                f"Platform    : {platform.system()} {platform.release()} ({platform.machine()})",
+                f"ExifTool    : {exiftool_status}",
+            ]
+        )
+
+    def _on_copy_report_info(self) -> None:
+        QGuiApplication.clipboard().setText(self._report_system_info())
+        self._copy_btn.setText("Copied!")
+        QTimer.singleShot(2000, lambda: self._copy_btn.setText("Copy System Info"))
 
 
 if __name__ == "__main__":
