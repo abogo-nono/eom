@@ -10,11 +10,11 @@ permissions:
 
 jobs:
   # ── Linux ───────────────────────────────────────────────────────────────────
-  # Build inside python:3.10.16-focal (Ubuntu 20.04, glibc 2.31) so the binary
+  # Build inside python:3.10-bullseye (Ubuntu 20.04, glibc 2.31) so the binary
   # runs on Ubuntu 20.04 / Debian 11 and any newer distro.
   build-linux:
     runs-on: ubuntu-latest
-    container: python:3.10.16-focal
+    container: python:3.10-bullseye
     steps:
       - name: Install git and Qt runtime deps
         run: |
