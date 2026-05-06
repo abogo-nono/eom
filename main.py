@@ -18,7 +18,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
-    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QVBoxLayout,
@@ -143,17 +142,66 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def on_about_btn_clicked(self) -> None:
-        QMessageBox.about(
-            self,
-            "About E.O.M",
-            """
-<p><span style="font-size:x-large;font-weight:600;">What is EOM?</span></p>
-<p>Eye On Metadata (E.O.M) is an open-source desktop application that displays,
-exports and removes metadata from media files. EOM is cross-platform (Windows,
-Linux, macOS) and was developed by
-<a href="https://github.com/abogo-nono">Abogo Lincoln</a>.</p>
-""",
+        from PySide6.QtWidgets import QDialog, QDialogButtonBox
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("About EOM")
+        dlg.setFixedSize(420, 320)
+        dlg.setStyleSheet("background: #0f1515; color: #e0e0e0;")
+
+        layout = QVBoxLayout(dlg)
+        layout.setContentsMargins(32, 28, 32, 20)
+        layout.setSpacing(10)
+
+        # Title row
+        title = QLabel("👁️ Eye On Metadata")
+        title.setStyleSheet("font-size: 20px; font-weight: 700; color: #00bcd4;")
+        layout.addWidget(title)
+
+        version = QLabel("v2  ·  open-source  ·  MIT license")
+        version.setStyleSheet("font-size: 12px; color: #888;")
+        layout.addWidget(version)
+
+        # Separator
+        sep = QLabel()
+        sep.setFixedHeight(1)
+        sep.setStyleSheet("background: #1e2c2c; margin: 4px 0;")
+        layout.addWidget(sep)
+
+        # Description
+        desc = QLabel(
+            "EOM reads, exports, and strips metadata from your files — "
+            "locally, with no upload, no account, no cloud.\n\n"
+            "Supports JPEG · PNG · TIFF · MP3 · FLAC · OGG · WAV · AIFF · "
+            "M4A · WMA · MP4 · MKV · WebM · PDF"
         )
+        desc.setWordWrap(True)
+        desc.setStyleSheet("font-size: 13px; color: #ccc; line-height: 1.5;")
+        layout.addWidget(desc)
+
+        layout.addStretch()
+
+        # Links row
+        links = QLabel(
+            '<a href="https://github.com/abogo-nono/eom" style="color:#00bcd4;">GitHub repository</a>'
+            "  ·  "
+            '<a href="https://github.com/abogo-nono" style="color:#00bcd4;">Abogo Lincoln</a>'
+        )
+        links.setOpenExternalLinks(True)
+        links.setStyleSheet("font-size: 12px;")
+        layout.addWidget(links)
+
+        # Close button
+        buttons = QDialogButtonBox(QDialogButtonBox.Close)
+        buttons.setStyleSheet(
+            "QPushButton { background: #00bcd4; color: #0b0f0f; font-weight: 600;"
+            " padding: 6px 20px; border-radius: 4px; border: none; }"
+            "QPushButton:hover { background: #00acc1; }"
+        )
+        buttons.rejected.connect(dlg.reject)
+        layout.addWidget(buttons)
+
+        dlg.exec()
 
     def on_menu_home_btn_toggled(self) -> None:
         self.ui.stackedWidget.setCurrentIndex(PageIndex.HOME)
