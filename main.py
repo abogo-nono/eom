@@ -15,11 +15,13 @@ from PySide6.QtCore import QFile, Qt, QTextStream, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon
 from PySide6.QtWidgets import (
     QApplication,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
     QPlainTextEdit,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
 )
 
@@ -80,6 +82,7 @@ class MainWindow(QMainWindow):
         # Feature controllers — they wire their own signals.
         self._extraction = ExtractionController(self.ui, self)
         self._removal = RemovalController(self.ui, self, self._extraction.on_export_btn_clicked)
+        self._setup_home_page()
         self._setup_report_page()
 
         # ExifTool status label — inserted left of the window chrome buttons.
@@ -301,6 +304,101 @@ class MainWindow(QMainWindow):
         QGuiApplication.clipboard().setText(self._report_system_info())
         self._copy_btn.setText("Copied!")
         QTimer.singleShot(2000, lambda: self._copy_btn.setText("Copy System Info"))
+
+    # ------------------------------------------------------------------
+    # Home page (replaces generated scroll area with a welcome screen)
+    # ------------------------------------------------------------------
+
+    def _setup_home_page(self) -> None:
+        # Detach the generated scroll area, leaving gridLayout_7 free.
+        self.ui.gridLayout_7.removeWidget(self.ui.docScrollArea)
+        self.ui.docScrollArea.setParent(None)
+
+        root = QVBoxLayout()
+        root.setContentsMargins(60, 50, 60, 40)
+        root.setSpacing(0)
+        self.ui.gridLayout_7.addLayout(root, 0, 0)
+
+        # ── Hero ──────────────────────────────────────────────────────
+        logo = QLabel()
+        logo.setPixmap(QIcon(_resource_path("images/app-logo.ico")).pixmap(72, 72))
+        logo.setAlignment(Qt.AlignCenter)
+        root.addWidget(logo)
+
+        root.addSpacing(14)
+
+        title = QLabel("Eye On Metadata")
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("font-size: 26px; font-weight: 700; color: #33c6cb;")
+        root.addWidget(title)
+
+        tagline = QLabel("Read · Export · Strip metadata — locally, privately.")
+        tagline.setAlignment(Qt.AlignCenter)
+        tagline.setStyleSheet("font-size: 13px; color: #788596; margin-top: 4px;")
+        root.addWidget(tagline)
+
+        root.addSpacing(40)
+
+        # ── Feature cards ─────────────────────────────────────────────
+        cards_row = QHBoxLayout()
+        cards_row.setSpacing(16)
+        cards_row.addWidget(
+            self._make_feature_card(
+                "🔍",
+                "Extract",
+                "View every metadata field from images, audio, video and PDF files.",
+                lambda: self.ui.menu_extract_btn.click(),
+            )
+        )
+        cards_row.addWidget(
+            self._make_feature_card(
+                "🗑️",
+                "Remove",
+                "Strip all metadata from a single file or an entire folder at once.",
+                lambda: self.ui.menu_remove_btn.click(),
+            )
+        )
+        cards_row.addWidget(
+            self._make_feature_card(
+                "🐛",
+                "Report a Bug",
+                "Found something wrong? Help improve EOM by opening a GitHub issue.",
+                lambda: self.ui.menu_report_btn.click(),
+            )
+        )
+        root.addLayout(cards_row)
+        root.addStretch()
+
+    def _make_feature_card(self, icon_text: str, title: str, description: str, on_click) -> QFrame:
+        card = QFrame()
+        card.setObjectName("feature_card")
+        card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(10)
+
+        icon_lbl = QLabel(icon_text)
+        icon_lbl.setStyleSheet("font-size: 30px;")
+        layout.addWidget(icon_lbl)
+
+        title_lbl = QLabel(title)
+        title_lbl.setStyleSheet("font-size: 14px; font-weight: 700; color: #33c6cb;")
+        layout.addWidget(title_lbl)
+
+        desc_lbl = QLabel(description)
+        desc_lbl.setWordWrap(True)
+        desc_lbl.setStyleSheet("font-size: 12px; color: #788596;")
+        layout.addWidget(desc_lbl)
+
+        layout.addStretch()
+
+        btn = QPushButton("Open →")
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.clicked.connect(on_click)
+        layout.addWidget(btn)
+
+        return card
 
 
 if __name__ == "__main__":

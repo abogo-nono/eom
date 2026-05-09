@@ -5,7 +5,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from PySide6.QtWidgets import QFileDialog, QMessageBox, QTableWidgetItem
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QFileDialog, QLabel, QMessageBox, QProgressBar, QTableWidgetItem
 
 from workers import RemovalWorker
 
@@ -61,6 +62,20 @@ class RemovalController:
         ui.remove_btn.clicked.connect(self.on_remove_btn_clicked)
         ui.export_and_remove_btn.clicked.connect(self.on_export_and_remove_btn_clicked)
 
+        # Progress bar — indeterminate spinner shown during removal.
+        self._progress = QProgressBar()
+        self._progress.setObjectName("remove_progress")
+        self._progress.setRange(0, 0)
+        self._progress.setTextVisible(False)
+        self._progress.hide()
+        ui.remove_page.layout().addWidget(self._progress, 2, 0)
+
+        # Empty-state hint — shown when the table has no rows.
+        self._empty_state = QLabel("Browse a file then click  Remove  to strip its metadata.")
+        self._empty_state.setAlignment(Qt.AlignCenter)
+        self._empty_state.setObjectName("empty_state_label")
+        ui.remove_page.layout().addWidget(self._empty_state, 3, 0)
+
     # ------------------------------------------------------------------
     # Handlers
     # ------------------------------------------------------------------
@@ -89,6 +104,8 @@ class RemovalController:
         self._worker.finished_all.connect(self._on_finished)
         self._ui.remove_btn.setEnabled(False)
         self._ui.export_and_remove_btn.setEnabled(False)
+        self._empty_state.hide()
+        self._progress.show()
         self._worker.start()
 
     def on_export_and_remove_btn_clicked(self) -> None:
@@ -116,11 +133,16 @@ class RemovalController:
 
     def _on_error(self, message: str) -> None:
         QMessageBox.warning(self._parent, "Data Remove Error", f"Removal failed: {message}")
+        self._progress.hide()
+        self._empty_state.show()
 
     def _on_finished(self) -> None:
         self._ui.removed_table_data.resizeColumnsToContents()
         self._ui.remove_btn.setEnabled(True)
         self._ui.export_and_remove_btn.setEnabled(True)
+        self._progress.hide()
+        if self._ui.removed_table_data.rowCount() == 0:
+            self._empty_state.show()
 
     # ------------------------------------------------------------------
     # Helpers

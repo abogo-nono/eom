@@ -164,3 +164,47 @@ QScrollBar:vertical {
 	border: none;
 	width: 0;
 }
+
+/* ========================= Feature cards (home page) =================== */
+QFrame#feature_card {
+    background-color: #0a1a24;
+    border: 1px solid #1e7085;
+    border-radius: 14px;
+}
+
+QFrame#feature_card QPushButton {
+    border: none;
+    background-color: #1e7085;
+    padding: 7px 15px;
+    color: whitesmoke;
+    font-weight: bold;
+    border-radius: 10px;
+    text-align: center;
+}
+
+QFrame#feature_card QPushButton:hover {
+    background-color: #33c6cb;
+}
+
+/* ========================= Progress bar ================================ */
+QProgressBar {
+    border: none;
+    background-color: #0a1a24;
+    border-radius: 2px;
+    max-height: 4px;
+    min-height: 4px;
+}
+
+QProgressBar::chunk {
+    background-color: #1e7085;
+    border-radius: 2px;
+}
+
+/* ========================= Empty-state label =========================== */
+QLabel#empty_state_label {
+    color: #788596;
+    font-style: italic;
+    font-size: 13px;
+    padding: 20px;
+}
+
