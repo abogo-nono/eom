@@ -767,7 +767,7 @@
              <item alignment="Qt::AlignLeft|Qt::AlignVCenter">
               <widget class="QLabel" name="eom_version_label">
                <property name="text">
-                <string>E.O.M v1.0.0 all rights are reserved</string>
+                <string>E.O.M v2.0.0 all rights are reserved</string>
                </property>
               </widget>
              </item>

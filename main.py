@@ -161,7 +161,7 @@ class MainWindow(QMainWindow):
         title.setStyleSheet("font-size: 20px; font-weight: 700; color: #00bcd4;")
         layout.addWidget(title)
 
-        version = QLabel("v2  ·  open-source  ·  MIT license")
+        version = QLabel("v2.0.0  ·  open-source  ·  MIT license")
         version.setStyleSheet("font-size: 12px; color: #888;")
         layout.addWidget(version)
 
@@ -293,7 +293,7 @@ class MainWindow(QMainWindow):
         exiftool_status = exiftool_backend._EXIFTOOL_PATH if exiftool_backend.is_available() else "not found"
         return "\n".join(
             [
-                "EOM version : v2",
+                "EOM version : v2.0.0",
                 f"Python      : {sys.version.split()[0]}",
                 f"Platform    : {platform.system()} {platform.release()} ({platform.machine()})",
                 f"ExifTool    : {exiftool_status}",
