@@ -310,38 +310,38 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _setup_home_page(self) -> None:
-        # Detach the generated scroll area, leaving gridLayout_7 free.
-        self.ui.gridLayout_7.removeWidget(self.ui.docScrollArea)
-        self.ui.docScrollArea.setParent(None)
-
-        root = QVBoxLayout()
-        root.setContentsMargins(60, 50, 60, 40)
-        root.setSpacing(0)
-        self.ui.gridLayout_7.addLayout(root, 0, 0)
+        # Keep the original docScrollArea with its HTML how-to content.
+        # Append the hero + feature cards below the existing label_4 content
+        # inside scrollAreaWidgetContents (gridLayout_8).
+        grid = self.ui.gridLayout_8  # row 0 already has label_4
 
         # ── Hero ──────────────────────────────────────────────────────
+        hero_row = QHBoxLayout()
+        hero_row.setContentsMargins(0, 24, 0, 8)
+        hero_row.setSpacing(12)
+
         logo = QLabel()
-        logo.setPixmap(QIcon(_resource_path("images/app-logo.ico")).pixmap(72, 72))
-        logo.setAlignment(Qt.AlignCenter)
-        root.addWidget(logo)
+        logo.setPixmap(QIcon(_resource_path("images/app-logo.ico")).pixmap(56, 56))
+        logo.setAlignment(Qt.AlignVCenter | Qt.AlignRight)
+        hero_row.addWidget(logo)
 
-        root.addSpacing(14)
-
+        hero_text = QVBoxLayout()
+        hero_text.setSpacing(2)
         title = QLabel("Eye On Metadata")
-        title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("font-size: 26px; font-weight: 700; color: #33c6cb;")
-        root.addWidget(title)
-
+        title.setStyleSheet("font-size: 22px; font-weight: 700; color: #33c6cb;")
         tagline = QLabel("Read · Export · Strip metadata — locally, privately.")
-        tagline.setAlignment(Qt.AlignCenter)
-        tagline.setStyleSheet("font-size: 13px; color: #788596; margin-top: 4px;")
-        root.addWidget(tagline)
+        tagline.setStyleSheet("font-size: 12px; color: #788596;")
+        hero_text.addWidget(title)
+        hero_text.addWidget(tagline)
+        hero_row.addLayout(hero_text)
+        hero_row.addStretch()
 
-        root.addSpacing(40)
+        grid.addLayout(hero_row, 1, 0)
 
         # ── Feature cards ─────────────────────────────────────────────
         cards_row = QHBoxLayout()
-        cards_row.setSpacing(16)
+        cards_row.setSpacing(12)
+        cards_row.setContentsMargins(0, 8, 0, 24)
         cards_row.addWidget(
             self._make_feature_card(
                 "🔍",
@@ -366,8 +366,7 @@ class MainWindow(QMainWindow):
                 lambda: self.ui.menu_report_btn.click(),
             )
         )
-        root.addLayout(cards_row)
-        root.addStretch()
+        grid.addLayout(cards_row, 2, 0)
 
     def _make_feature_card(self, icon_text: str, title: str, description: str, on_click) -> QFrame:
         card = QFrame()
