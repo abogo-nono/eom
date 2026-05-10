@@ -493,7 +493,7 @@ class Ui_MainWindow(object):
         ___qtablewidgetitem3 = self.removed_table_data.horizontalHeaderItem(1)
         ___qtablewidgetitem3.setText(QCoreApplication.translate("MainWindow", u"Status", None));
         self.label_5.setText(QCoreApplication.translate("MainWindow", u"report", None))
-        self.eom_version_label.setText(QCoreApplication.translate("MainWindow", u"E.O.M v1.0.0 all rights are reserved", None))
+        self.eom_version_label.setText(QCoreApplication.translate("MainWindow", u"E.O.M v2.0.0 all rights are reserved", None))
         self.about_btn.setText("")
         self.about_label.setText(QCoreApplication.translate("MainWindow", u"about", None))
     # retranslateUi

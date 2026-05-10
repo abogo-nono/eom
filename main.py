@@ -15,11 +15,13 @@ from PySide6.QtCore import QFile, Qt, QTextStream, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon
 from PySide6.QtWidgets import (
     QApplication,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
     QPlainTextEdit,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
 )
 
@@ -80,6 +82,7 @@ class MainWindow(QMainWindow):
         # Feature controllers — they wire their own signals.
         self._extraction = ExtractionController(self.ui, self)
         self._removal = RemovalController(self.ui, self, self._extraction.on_export_btn_clicked)
+        self._setup_home_page()
         self._setup_report_page()
 
         # ExifTool status label — inserted left of the window chrome buttons.
@@ -158,7 +161,7 @@ class MainWindow(QMainWindow):
         title.setStyleSheet("font-size: 20px; font-weight: 700; color: #00bcd4;")
         layout.addWidget(title)
 
-        version = QLabel("v2  ·  open-source  ·  MIT license")
+        version = QLabel("v2.0.0  ·  open-source  ·  MIT license")
         version.setStyleSheet("font-size: 12px; color: #888;")
         layout.addWidget(version)
 
@@ -290,7 +293,7 @@ class MainWindow(QMainWindow):
         exiftool_status = exiftool_backend._EXIFTOOL_PATH if exiftool_backend.is_available() else "not found"
         return "\n".join(
             [
-                "EOM version : v2",
+                "EOM version : v2.0.0",
                 f"Python      : {sys.version.split()[0]}",
                 f"Platform    : {platform.system()} {platform.release()} ({platform.machine()})",
                 f"ExifTool    : {exiftool_status}",
@@ -301,6 +304,100 @@ class MainWindow(QMainWindow):
         QGuiApplication.clipboard().setText(self._report_system_info())
         self._copy_btn.setText("Copied!")
         QTimer.singleShot(2000, lambda: self._copy_btn.setText("Copy System Info"))
+
+    # ------------------------------------------------------------------
+    # Home page (replaces generated scroll area with a welcome screen)
+    # ------------------------------------------------------------------
+
+    def _setup_home_page(self) -> None:
+        # Keep the original docScrollArea with its HTML how-to content.
+        # Append the hero + feature cards below the existing label_4 content
+        # inside scrollAreaWidgetContents (gridLayout_8).
+        grid = self.ui.gridLayout_8  # row 0 already has label_4
+
+        # ── Hero ──────────────────────────────────────────────────────
+        hero_row = QHBoxLayout()
+        hero_row.setContentsMargins(0, 24, 0, 8)
+        hero_row.setSpacing(12)
+
+        logo = QLabel()
+        logo.setPixmap(QIcon(_resource_path("images/app-logo.ico")).pixmap(56, 56))
+        logo.setAlignment(Qt.AlignVCenter | Qt.AlignRight)
+        hero_row.addWidget(logo)
+
+        hero_text = QVBoxLayout()
+        hero_text.setSpacing(2)
+        title = QLabel("Eye On Metadata")
+        title.setStyleSheet("font-size: 22px; font-weight: 700; color: #33c6cb;")
+        tagline = QLabel("Read · Export · Strip metadata — locally, privately.")
+        tagline.setStyleSheet("font-size: 12px; color: #788596;")
+        hero_text.addWidget(title)
+        hero_text.addWidget(tagline)
+        hero_row.addLayout(hero_text)
+        hero_row.addStretch()
+
+        grid.addLayout(hero_row, 1, 0)
+
+        # ── Feature cards ─────────────────────────────────────────────
+        cards_row = QHBoxLayout()
+        cards_row.setSpacing(12)
+        cards_row.setContentsMargins(0, 8, 0, 24)
+        cards_row.addWidget(
+            self._make_feature_card(
+                "🔍",
+                "Extract",
+                "View every metadata field from images, audio, video and PDF files.",
+                lambda: self.ui.menu_extract_btn.click(),
+            )
+        )
+        cards_row.addWidget(
+            self._make_feature_card(
+                "🗑️",
+                "Remove",
+                "Strip all metadata from a single file or an entire folder at once.",
+                lambda: self.ui.menu_remove_btn.click(),
+            )
+        )
+        cards_row.addWidget(
+            self._make_feature_card(
+                "🐛",
+                "Report a Bug",
+                "Found something wrong? Help improve EOM by opening a GitHub issue.",
+                lambda: self.ui.menu_report_btn.click(),
+            )
+        )
+        grid.addLayout(cards_row, 2, 0)
+
+    def _make_feature_card(self, icon_text: str, title: str, description: str, on_click) -> QFrame:
+        card = QFrame()
+        card.setObjectName("feature_card")
+        card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(10)
+
+        icon_lbl = QLabel(icon_text)
+        icon_lbl.setStyleSheet("font-size: 30px;")
+        layout.addWidget(icon_lbl)
+
+        title_lbl = QLabel(title)
+        title_lbl.setStyleSheet("font-size: 14px; font-weight: 700; color: #33c6cb;")
+        layout.addWidget(title_lbl)
+
+        desc_lbl = QLabel(description)
+        desc_lbl.setWordWrap(True)
+        desc_lbl.setStyleSheet("font-size: 12px; color: #788596;")
+        layout.addWidget(desc_lbl)
+
+        layout.addStretch()
+
+        btn = QPushButton("Open →")
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.clicked.connect(on_click)
+        layout.addWidget(btn)
+
+        return card
 
 
 if __name__ == "__main__":

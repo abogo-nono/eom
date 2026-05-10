@@ -15,7 +15,10 @@ from PyInstaller.utils.hooks import collect_submodules
 block_cipher = None
 
 # Bundle the standalone exiftool.exe when present (downloaded during Windows CI).
-ET_BIN = [("exiftool.exe", ".")] if os.path.isfile("exiftool.exe") else []
+# Use datas (not binaries) — exiftool is a standalone exe, not a shared library.
+# Putting it in binaries causes PyInstaller to analyse it for DLL deps and
+# silently drop it during the binary reclassification pass.
+ET_DATA = [("exiftool.exe", ".")] if os.path.isfile("exiftool.exe") else []
 
 # macOS prefers .icns; everywhere else .ico works fine.
 if sys.platform == "darwin":
@@ -27,8 +30,8 @@ else:
 a = Analysis(
     ["main.py"],
     pathex=["."],
-    binaries=ET_BIN,
-    datas=[("style.qss", "."), ("images/app-logo.ico", "images")],
+    binaries=[],
+    datas=[("style.qss", "."), ("images/app-logo.ico", "images")] + ET_DATA,
     hiddenimports=collect_submodules("PySide6"),
     hookspath=[],
     runtime_hooks=[],

@@ -5,7 +5,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from PySide6.QtWidgets import QFileDialog, QMessageBox, QTableWidgetItem
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QFileDialog, QLabel, QMessageBox, QProgressBar, QTableWidgetItem
 
 from workers import ExtractionWorker
 
@@ -59,6 +60,20 @@ class ExtractionController:
         ui.extract_btn.clicked.connect(self.on_extract_btn_clicked)
         ui.export_btn.clicked.connect(self.on_export_btn_clicked)
 
+        # Progress bar — indeterminate spinner shown during extraction.
+        self._progress = QProgressBar()
+        self._progress.setObjectName("extract_progress")
+        self._progress.setRange(0, 0)
+        self._progress.setTextVisible(False)
+        self._progress.hide()
+        ui.extract_page.layout().addWidget(self._progress, 2, 0)
+
+        # Empty-state hint — shown when the table has no rows.
+        self._empty_state = QLabel("Browse a file then click  Extract  to see its metadata.")
+        self._empty_state.setAlignment(Qt.AlignCenter)
+        self._empty_state.setObjectName("empty_state_label")
+        ui.extract_page.layout().addWidget(self._empty_state, 3, 0)
+
     # ------------------------------------------------------------------
     # Handlers
     # ------------------------------------------------------------------
@@ -91,6 +106,8 @@ class ExtractionController:
         self._worker.finished_all.connect(self._on_finished)
         self._ui.extract_btn.setEnabled(False)
         self._ui.export_btn.setEnabled(False)
+        self._empty_state.hide()
+        self._progress.show()
         self._worker.start()
 
     def on_export_btn_clicked(self) -> None:
@@ -123,6 +140,7 @@ class ExtractionController:
     # ------------------------------------------------------------------
 
     def _on_result(self, name: str, data: object) -> None:
+        self._empty_state.hide()
         is_batch = self._worker and self._worker._is_batch
         if is_batch:
             row = self._ui.extracted_table_data.rowCount()
@@ -140,11 +158,16 @@ class ExtractionController:
 
     def _on_error(self, message: str) -> None:
         QMessageBox.warning(self._parent, "Data Extract Error", f"Extraction failed: {message}")
+        self._progress.hide()
+        self._empty_state.show()
 
     def _on_finished(self) -> None:
         self._ui.extracted_table_data.resizeColumnsToContents()
         self._ui.extract_btn.setEnabled(True)
         self._ui.export_btn.setEnabled(True)
+        self._progress.hide()
+        if self._ui.extracted_table_data.rowCount() == 0:
+            self._empty_state.show()
 
     # ------------------------------------------------------------------
     # Helpers
