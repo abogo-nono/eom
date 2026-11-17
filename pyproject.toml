@@ -26,8 +26,7 @@ dev = [
 [tool.ruff]
 line-length = 120
 target-version = "py310"
-# Skip generated Qt files
-extend-exclude = ["app_ui.py", "resources_rc.py", "app - Copy.ui", ".venv"]
+extend-exclude = [".venv", "venv"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]

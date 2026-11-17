@@ -58,13 +58,13 @@ PySide6 desktop app (and CLI) for viewing, exporting, cleaning and editing image
 
 Hand-written source files:
 
-- [main.py](main.py) — thin `MainWindow` shell + `main()` entry point. Wires window chrome signals
-  (frameless: custom drag + min/max/close in `header_widget`), page navigation via `PageIndex` enum +
-  `stackedWidget` (HOME, EXTRACT, REMOVE, REPORT, SETTINGS), drag & drop (`dropEvent` → `open_paths`),
-  instantiates the controllers, adds the ExifTool status label and the opt-in update link.
-  `main()` forwards to `cli.main()` when the first argument is a CLI command, otherwise starts the GUI
-  (`[--extract|--remove] PATH...` pre-loads files). `_resource_path(rel)` resolves bundled files in
-  dev and PyInstaller frozen modes.
+- [main.py](main.py) — `MainWindow` + `main()` entry point. The whole UI is built in code (no Qt
+  Designer file): frameless window with `TitleBar` (drag, double-click to maximise, ExifTool and
+  update chips, window buttons), `Sidebar` (Files / Settings / About → `PageIndex`), a page stack and a
+  status bar. Edge resizing goes through an application event filter calling `startSystemResize()`.
+  Drops on any page are routed to the workspace. `main()` forwards to `cli.main()` when the first
+  argument is a CLI command, otherwise starts the GUI with any path arguments loaded.
+  `_resource_path(rel)` resolves bundled files in dev and PyInstaller frozen modes.
 - [Extractor.py](Extractor.py) — pure format-dispatch functions (no Qt):
   - `single_image_extractor(path)` — ExifTool first (when available), else `fallback_extractor`:
     Pillow (JPEG/PNG/TIFF/WebP/GIF/HEIC; IFD0 + Exif IFD + GPS IFD + PNG text + XMP), mutagen
@@ -86,16 +86,21 @@ Hand-written source files:
   `_find_exiftool()` (checks `sys._MEIPASS` first for the bundled Windows exe, then `shutil.which`).
   `extract()` uses `-json -G1 -a -u`; `remove()` uses `-all= -overwrite_original`; `write()` /
   `remove_tags()` apply assignments with `-m`. `shell=False` throughout; 30 s subprocess timeout.
-- [workers.py](workers.py) — `ExtractionWorker`, `RemovalWorker` (profile/keys, output dir,
-  verification → `report_ready(str, dict)`), `EditWorker`. Common signals: `result_ready(str, object)`,
-  `progress(int, int)`, `error(str)`, `finished_all()`.
-- [controllers/common.py](controllers/common.py) — `FileSelection` (file/folder mode, Sub-folders
-  checkbox, Recent menu, multi-file selections), export-path dialog, "modify originals?" confirmation.
-- [controllers/extraction.py](controllers/extraction.py) — `ExtractionController`: Extract page (risk
-  banner, filter, preview + map side panel, export from cached results, Edit dialog).
-- [controllers/removal.py](controllers/removal.py) — `RemovalController`: Remove page (profile combo,
-  custom selection, "Save copies to", before/after dialog, export-and-remove).
-- [controllers/settings_page.py](controllers/settings_page.py) — `SettingsController`: Settings page.
+- [workers.py](workers.py) — QThreads over explicit absolute paths: `ExtractionWorker(paths)`,
+  `RemovalWorker([CleanTask], output_dir, verify)` → `report_ready(path, report)`, `EditWorker`.
+  Common signals: `progress(int, int)`, `error(str)`, `finished_all()`.
+- [session.py](session.py) — `Session` (ordered `FileEntry` list + `added/updated/removed` signals),
+  `CleaningPlan` (profile, custom categories, output dir → `for_entry()` / `keys_removed()` used by the
+  live "Remove / Keep" preview) and `expand()` (dropped paths → `(path, rel)` pairs).
+- [views/workspace.py](views/workspace.py) — `WorkspaceView`: drop zone (empty state), file list with
+  a painted delegate (risk pill), `DetailPanel` (header, `TagTree` grouped by category with the
+  cleaning preview or per-tag checkboxes in Custom mode, preview + map), `ActionBar` (profile, copies,
+  Export, Clean). Owns the workers.
+- [views/settings_view.py](views/settings_view.py) — Settings page (cards).
+- [views/about.py](views/about.py) — About page: engines, version, bug report + system info.
+- [views/common.py](views/common.py) — export-path dialog and "modify originals?" confirmation.
+- [icons.py](icons.py) — Feather line icons as SVG path data, rendered in a theme colour;
+  `icons.bind(widget, name, token)` keeps an icon in sync when the theme changes.
 - [widgets.py](widgets.py) — `PreviewWidget`, `MapWidget` (OSM tiles, no request without consent),
   `BeforeAfterDialog`, `EditDialog`, `CustomSelectionDialog`, risk label/colour helpers.
 - [settings.py](settings.py) — typed `QSettings` wrapper (INI). Tests redirect it via `use_path()`.
@@ -105,21 +110,11 @@ Hand-written source files:
 - [updater.py](updater.py) — opt-in GitHub release check.
 - [version.py](version.py) — `__version__`, the single version string.
 
-## Generated files — DO NOT edit by hand
+## Generated files
 
-- [app_ui.py](app_ui.py) — regenerate from [app.ui](app.ui) (Qt Designer) with:
-  ```bash
-  pyside6-uic app.ui -o app_ui.py
-  ```
-- [resources_rc.py](resources_rc.py) — ~130k lines, regenerate from [resources.qrc](resources.qrc) with:
-  ```bash
-  pyside6-rcc resources.qrc -o resources_rc.py
-  ```
-  Resources are referenced as Qt paths like `:/outline/icons/outline/maximize-2.svg`.
-- `app - Copy.ui` is a stray duplicate; ignore it.
 - [translations/eom_fr.qm](translations) — compiled from `eom_fr.ts`. After changing UI strings:
   ```bash
-  pyside6-lupdate app.ui main.py widgets.py risk.py profiles.py controllers/*.py -ts translations/eom_fr.ts
+  pyside6-lupdate main.py widgets.py risk.py profiles.py views/*.py -ts translations/eom_fr.ts
   # translate the new entries (Qt Linguist: pyside6-linguist translations/eom_fr.ts), then:
   pyside6-lrelease translations/eom_fr.ts -qm translations/eom_fr.qm
   ```
@@ -127,12 +122,14 @@ Hand-written source files:
 
 ## Project conventions / pitfalls
 
-- **Frameless window** (`Qt.FramelessWindowHint`): no OS title-bar controls. Window dragging uses
-  `startSystemMove()` (Wayland + X11 + Windows + macOS). Falls back to manual delta when
-  `windowHandle()` is `None` (e.g. offscreen in tests). Min/max/close are custom buttons in
-  `ui.header_widget` — preserve that wiring when refactoring `main.py`.
-- **Handler naming**: `on_<widget>_<signal>` (e.g. `on_extract_btn_clicked`). Follow this when adding handlers.
-- **File naming is inconsistent** (`Extractor.py` capitalized, `main.py` / `app_ui.py` lowercase). Match the existing case of the file you touch rather than renaming.
+- **Frameless window** (`Qt.FramelessWindowHint`): no OS title-bar controls. Moving uses
+  `startSystemMove()`, resizing `startSystemResize()` (Wayland + X11 + Windows + macOS), with a manual
+  fallback when `windowHandle()` is `None` (e.g. offscreen in tests). Keep `TitleBar` and the event
+  filter in `main.py` working when refactoring.
+- **Styling by role**: style widgets with dynamic properties — `kind` on buttons (`primary`, `ghost`,
+  `link`), `role` on labels (`title`, `h2`, `section`, `muted`, `caption`…), `badge` on pills,
+  `panel="true"` on cards — via `widgets.styled()` / `widgets.set_badge()`. No inline colours in Python.
+- **File naming is inconsistent** (`Extractor.py` capitalized, the rest lowercase). Match the existing case of the file you touch rather than renaming.
 - **ExifTool dispatch is first for reading**: `single_image_extractor` uses ExifTool whenever it is
   available. **Writing** (remove/edit/shift) uses ExifTool only for `formats.EXIFTOOL_WRITABLE_EXTENSIONS`;
   MP3/FLAC/OGG/Office go through mutagen/zipfile, and **PDF always goes through pypdf** — ExifTool PDF
@@ -147,10 +144,8 @@ Hand-written source files:
   Dynamic values are inserted with `.replace("%1", value)` after translation. Category/profile labels
   are marked with `QT_TRANSLATE_NOOP` in `risk.py` / `profiles.py` (which must stay Qt-free for the CLI).
 - **Privacy**: no network request without consent. Map tiles and update checks are opt-in settings.
-- **`app_ui.py` sets a stock-photo window icon** — `main.py` overrides it after `setupUi` using
-  `_resource_path("images/app-logo.ico")`. Do not "fix" the generated file.
-- `on_menu_docs_btn_toggled` currently routes to stacked index `0` (same as home) — known quirk, confirm intent before "fixing".
-- **Extractor returns `None`/falsy on unsupported formats** — controllers and workers depend on this contract. [tests/test_extractor.py](tests/test_extractor.py) asserts it.
-- Manual smoke test on top of `pytest` = run `python main.py`, drop a sample JPEG, MP3, PDF and DOCX,
-  check the risk banner, clean with the *Social media sharing* profile into a copies folder, and
-  double-click the result to review before/after. Also try `python main.py risk <file>`.
+- **Extractor returns `None`/falsy on unsupported formats** — the session, workers and CLI depend on this contract. [tests/test_extractor.py](tests/test_extractor.py) asserts it.
+- Manual smoke test on top of `pytest` = run `python main.py`, drop a folder with a JPEG, MP3, PDF and
+  DOCX, check the risk pills and the Remove/Keep preview, clean with *Social media sharing* into a
+  copies folder, then open *Before / after*. Try both themes and a 980 px wide window. Also try
+  `python main.py risk <file>`.

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 from PySide6.QtCore import Qt
@@ -17,44 +18,48 @@ from PySide6.QtWidgets import QApplication
 
 PALETTES: dict[str, dict[str, str]] = {
     "dark": {
-        "bg": "#050809",
-        "header": "#0a1a24",
-        "menu": "#061016",
-        "surface": "#0a1a24",
-        "input_bg": "#131a1a",
+        "bg": "#070c0e",
+        "sidebar": "#0a1418",
+        "surface": "#0e1a1f",
+        "surface_alt": "#132329",
+        "input_bg": "#0b1519",
+        "line": "#1d3139",
         "accent": "#1e7085",
-        "accent_hover": "#33c6cb",
-        "accent_soft": "rgba(51, 198, 203, 0.15)",
-        "on_accent": "#f5f5f5",
+        "accent_hover": "#268aa3",
+        "accent_soft": "rgba(51, 198, 203, 0.14)",
+        "on_accent": "#ffffff",
         "primary": "#33c6cb",
-        "title": "#f0f8ff",
-        "text": "#e0e6e8",
-        "muted": "#788596",
-        "line": "#123a45",
-        "menu_checked": "#f5f5f5",
-        "high": "#ef5350",
-        "medium": "#ffb74d",
-        "low": "#81c784",
+        "text": "#e3eaec",
+        "muted": "#82929b",
+        "high": "#ef5f5a",
+        "high_soft": "rgba(239, 95, 90, 0.14)",
+        "medium": "#f2a94a",
+        "medium_soft": "rgba(242, 169, 74, 0.14)",
+        "low": "#6cc28a",
+        "low_soft": "rgba(108, 194, 138, 0.14)",
+        "scrim": "rgba(0, 0, 0, 0.35)",
     },
     "light": {
         "bg": "#f3f6f7",
-        "header": "#ffffff",
-        "menu": "#e3edef",
+        "sidebar": "#e8eff1",
         "surface": "#ffffff",
-        "input_bg": "#eef3f4",
+        "surface_alt": "#eef4f6",
+        "input_bg": "#f7fafb",
+        "line": "#d4dfe3",
         "accent": "#1e7085",
-        "accent_hover": "#2a93a8",
-        "accent_soft": "rgba(30, 112, 133, 0.12)",
+        "accent_hover": "#175b6c",
+        "accent_soft": "rgba(30, 112, 133, 0.10)",
         "on_accent": "#ffffff",
-        "primary": "#0d5f6b",
-        "title": "#10262e",
-        "text": "#1b2a30",
-        "muted": "#55626d",
-        "line": "#c5d5da",
-        "menu_checked": "#0d5f6b",
+        "primary": "#0f6b78",
+        "text": "#14232a",
+        "muted": "#5a6a73",
         "high": "#c62828",
+        "high_soft": "rgba(198, 40, 40, 0.09)",
         "medium": "#a35f00",
+        "medium_soft": "rgba(163, 95, 0, 0.10)",
         "low": "#2e7d32",
+        "low_soft": "rgba(46, 125, 50, 0.10)",
+        "scrim": "rgba(0, 0, 0, 0.08)",
     },
 }
 
@@ -85,8 +90,37 @@ def color(token: str) -> str:
     return PALETTES[_current][token]
 
 
+_ASSETS = {
+    # QSS cannot draw arrows or check marks from CSS borders: ship tiny SVGs.
+    "chevron": '<polyline points="6 9 12 15 18 9" stroke="{c}"/>',
+    "check": '<polyline points="20 6 9 17 4 12" stroke="{c}"/>',
+}
+_asset_dir: Path | None = None
+
+
+def _asset_urls(palette: dict[str, str], name: str) -> dict[str, str]:
+    """Write the theme's SVG assets to a temp folder; return ``{token: path}``."""
+    global _asset_dir
+    if _asset_dir is None:
+        _asset_dir = Path(tempfile.mkdtemp(prefix="eom-theme-"))
+    colours = {"chevron": palette["muted"], "check": palette["on_accent"]}
+    urls = {}
+    for token, body in _ASSETS.items():
+        path = _asset_dir / f"{token}-{name}.svg"
+        if not path.exists():
+            path.write_text(
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="3" '
+                f'stroke-linecap="round" stroke-linejoin="round">{body.format(c=colours[token])}</svg>',
+                encoding="utf-8",
+            )
+        urls[token] = path.as_posix()
+    return urls
+
+
 def render_stylesheet(name: str, template: str | None = None) -> str:
-    palette = PALETTES[resolve(name)]
+    resolved = resolve(name)
+    palette = dict(PALETTES[resolved])
+    palette.update(_asset_urls(palette, resolved))
     if template is None:
         template = (_base_dir() / "style.qss").read_text(encoding="utf-8")
     return _TOKEN_RE.sub(lambda m: palette.get(m.group(1), m.group(0)), template)
@@ -97,7 +131,7 @@ def _qpalette(p: dict[str, str]) -> QPalette:
     pal.setColor(QPalette.Window, QColor(p["bg"]))
     pal.setColor(QPalette.WindowText, QColor(p["text"]))
     pal.setColor(QPalette.Base, QColor(p["input_bg"]))
-    pal.setColor(QPalette.AlternateBase, QColor(p["surface"]))
+    pal.setColor(QPalette.AlternateBase, QColor(p["surface_alt"]))
     pal.setColor(QPalette.Text, QColor(p["text"]))
     pal.setColor(QPalette.Button, QColor(p["surface"]))
     pal.setColor(QPalette.ButtonText, QColor(p["text"]))

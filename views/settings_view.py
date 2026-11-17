@@ -1,16 +1,16 @@
-"""SettingsController — builds the Settings page (appearance, behaviour, privacy, integration)."""
+"""Settings page: appearance, cleaning defaults, privacy & network, integration, history."""
 
 from __future__ import annotations
 
 import sys
 
-from PySide6.QtCore import QCoreApplication, QObject, Signal
+from PySide6.QtCore import QCoreApplication, Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QFileDialog,
-    QFormLayout,
-    QGroupBox,
+    QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -24,51 +24,51 @@ import integration
 import profiles
 import settings
 import updater
+from widgets import styled
 
 LANGUAGES = (("system", "System default"), ("en", "English"), ("fr", "Français"))
 
 
-class SettingsController(QObject):
-    """Owns the Settings page widget.
+class SettingsView(QWidget):
+    """Settings page.
 
     Signals
     -------
     theme_changed(name)      user picked another theme (applied immediately)
     language_changed(code)   user picked another language (applies after restart)
-    settings_changed()       any behaviour setting changed; pages should reload
+    settings_changed()       a behaviour setting changed; the workspace should reload
     """
 
     theme_changed = Signal(str)
     language_changed = Signal(str)
     settings_changed = Signal()
 
-    def __init__(self, page: QWidget, parent: QWidget) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._parent = parent
-        self.page = page
-        page.setObjectName("settings_page")
         self._checker: updater.UpdateChecker | None = None
 
-        outer = QVBoxLayout(page)
+        outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         scroll = QScrollArea()
-        scroll.setObjectName("settings_scroll")
         scroll.setWidgetResizable(True)
-        contents = QWidget()
-        contents.setObjectName("settings_contents")
-        scroll.setWidget(contents)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         outer.addWidget(scroll)
+        contents = QWidget()
+        scroll.setWidget(contents)
+        column = QHBoxLayout(contents)
+        column.addStretch(1)
+        body = QWidget()
+        body.setMaximumWidth(760)
+        column.addWidget(body, 6)
+        column.addStretch(1)
 
-        root = QVBoxLayout(contents)
-        root.setContentsMargins(40, 24, 40, 24)
-        root.setSpacing(12)
-        title = QLabel(self.tr("Settings"))
-        title.setObjectName("page_title")
-        root.addWidget(title)
+        root = QVBoxLayout(body)
+        root.setContentsMargins(8, 28, 8, 28)
+        root.setSpacing(14)
+        root.addWidget(styled(QLabel(self.tr("Settings")), role="title"))
 
         # -- Appearance ------------------------------------------------------
-        box = QGroupBox(self.tr("Appearance"))
-        form = QFormLayout(box)
+        card, grid = self._card(self.tr("Appearance"))
         self.theme_combo = QComboBox()
         for value, label in (
             ("dark", self.tr("Dark")),
@@ -76,88 +76,78 @@ class SettingsController(QObject):
             ("system", self.tr("Follow system")),
         ):
             self.theme_combo.addItem(label, value)
-        self.theme_combo.setCurrentIndex(max(0, self.theme_combo.findData(settings.get("theme"))))
         self.theme_combo.activated.connect(self.on_theme_combo_activated)
-        form.addRow(self.tr("Theme"), self.theme_combo)
-
+        self._row(grid, 0, self.tr("Theme"), self.theme_combo)
         self.language_combo = QComboBox()
         for code, label in LANGUAGES:
             self.language_combo.addItem(self.tr("System default") if code == "system" else label, code)
-        self.language_combo.setCurrentIndex(max(0, self.language_combo.findData(settings.get("language"))))
         self.language_combo.activated.connect(self.on_language_combo_activated)
-        form.addRow(self.tr("Language"), self.language_combo)
-        self.language_note = QLabel(self.tr("Restart EOM to apply a new language."))
-        self.language_note.setObjectName("muted_label")
+        self._row(grid, 1, self.tr("Language"), self.language_combo)
+        self.language_note = styled(QLabel(self.tr("Restart EOM to apply the new language.")), badge="info")
         self.language_note.hide()
-        form.addRow("", self.language_note)
-        root.addWidget(box)
+        grid.addWidget(self.language_note, 2, 1, Qt.AlignLeft)
+        root.addWidget(card)
 
         # -- Cleaning --------------------------------------------------------
-        box = QGroupBox(self.tr("Cleaning"))
-        form = QFormLayout(box)
+        card, grid = self._card(self.tr("Cleaning"))
         self.profile_combo = QComboBox()
         for profile in profiles.PROFILES.values():
             self.profile_combo.addItem(QCoreApplication.translate("profiles", profile.name), profile.id)
         self.profile_combo.addItem(self.tr("Custom selection"), "custom")
         self.profile_combo.activated.connect(lambda _i: self._set("profile", self.profile_combo.currentData()))
-        form.addRow(self.tr("Default profile"), self.profile_combo)
+        self._row(grid, 0, self.tr("Default profile"), self.profile_combo)
 
-        self.recursive_check = QCheckBox(self.tr("Include sub-folders when a folder is selected"))
+        self.recursive_check = QCheckBox(self.tr("Include sub-folders when adding a folder"))
         self.recursive_check.toggled.connect(lambda v: self._set("recursive", v))
-        form.addRow(self.recursive_check)
-
+        grid.addWidget(self.recursive_check, 1, 0, 1, 2)
         self.copy_check = QCheckBox(self.tr("Save cleaned / edited copies instead of modifying originals"))
-        self.copy_check.toggled.connect(lambda v: self._set("output_mode", v))
-        form.addRow(self.copy_check)
-
+        self.copy_check.toggled.connect(self.on_copy_check_toggled)
+        grid.addWidget(self.copy_check, 2, 0, 1, 2)
         row = QHBoxLayout()
-        self.output_label = QLabel()
-        self.output_label.setObjectName("muted_label")
+        self.output_label = styled(QLabel(), role="muted")
         self.output_label.setWordWrap(True)
         row.addWidget(self.output_label, 1)
         choose = QPushButton(self.tr("Choose…"))
         choose.clicked.connect(self.on_choose_output_clicked)
         row.addWidget(choose)
-        form.addRow(self.tr("Copies folder"), row)
-
+        self._row(grid, 3, self.tr("Copies folder"), row)
         self.confirm_check = QCheckBox(self.tr("Ask before modifying original files"))
         self.confirm_check.toggled.connect(lambda v: self._set("confirm_in_place", v))
-        form.addRow(self.confirm_check)
-        root.addWidget(box)
+        grid.addWidget(self.confirm_check, 4, 0, 1, 2)
+        root.addWidget(card)
 
         # -- Privacy & network ----------------------------------------------
-        box = QGroupBox(self.tr("Privacy && network"))
-        form = QFormLayout(box)
-        note = QLabel(
-            self.tr("EOM works fully offline. These options are the only network access, and are off by default.")
+        card, grid = self._card(self.tr("Privacy && network"))
+        note = styled(
+            QLabel(
+                self.tr("EOM works fully offline. These options are the only network access, and are off by default.")
+            ),
+            role="muted",
         )
-        note.setObjectName("muted_label")
         note.setWordWrap(True)
-        form.addRow(note)
+        grid.addWidget(note, 0, 0, 1, 2)
         self.map_check = QCheckBox(self.tr("Load map tiles from OpenStreetMap for geotagged files"))
         self.map_check.toggled.connect(lambda v: self._set("allow_map_tiles", v))
-        form.addRow(self.map_check)
+        grid.addWidget(self.map_check, 1, 0, 1, 2)
         self.update_check = QCheckBox(self.tr("Check GitHub for a new version at startup"))
         self.update_check.toggled.connect(lambda v: self._set("check_updates", v))
-        form.addRow(self.update_check)
+        grid.addWidget(self.update_check, 2, 0, 1, 2)
         row = QHBoxLayout()
         self.check_now_btn = QPushButton(self.tr("Check now"))
         self.check_now_btn.clicked.connect(self.on_check_now_clicked)
         row.addWidget(self.check_now_btn)
-        self.update_status = QLabel()
-        self.update_status.setObjectName("muted_label")
+        self.update_status = styled(QLabel(), role="muted")
         self.update_status.setOpenExternalLinks(True)
+        self.update_status.setWordWrap(True)
         row.addWidget(self.update_status, 1)
-        form.addRow(row)
-        root.addWidget(box)
+        grid.addLayout(row, 3, 0, 1, 2)
+        root.addWidget(card)
 
         # -- Integration -----------------------------------------------------
-        box = QGroupBox(self.tr("File manager integration"))
-        form = QFormLayout(box)
-        self.integration_status = QLabel()
-        self.integration_status.setObjectName("muted_label")
+        card, grid = self._card(self.tr("File manager integration"))
+        self.integration_status = styled(QLabel(), role="muted")
         self.integration_status.setWordWrap(True)
-        form.addRow(self.integration_status)
+        grid.addWidget(self.integration_status, 0, 0, 1, 2)
         row = QHBoxLayout()
         self.install_btn = QPushButton(self.tr("Add to right-click menu"))
         self.install_btn.clicked.connect(self.on_install_clicked)
@@ -166,24 +156,53 @@ class SettingsController(QObject):
         row.addWidget(self.install_btn)
         row.addWidget(self.uninstall_btn)
         row.addStretch()
-        form.addRow(row)
-        root.addWidget(box)
+        grid.addLayout(row, 1, 0, 1, 2)
+        root.addWidget(card)
 
         # -- History ---------------------------------------------------------
-        box = QGroupBox(self.tr("History"))
-        form = QFormLayout(box)
+        card, grid = self._card(self.tr("History"))
+        row = QHBoxLayout()
+        row.addWidget(
+            styled(QLabel(self.tr("Recently opened files and folders are listed on the start screen.")), role="muted"),
+            1,
+        )
         clear = QPushButton(self.tr("Clear recent files"))
         clear.clicked.connect(self.on_clear_recent_clicked)
-        form.addRow(clear)
-        root.addWidget(box)
+        row.addWidget(clear)
+        grid.addLayout(row, 0, 0, 1, 2)
+        root.addWidget(card)
         root.addStretch()
 
+        for widget in (self.check_now_btn, self.install_btn, self.uninstall_btn, choose, clear):
+            widget.setCursor(Qt.PointingHandCursor)
         self.reload()
 
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _card(title: str) -> tuple[QFrame, QGridLayout]:
+        card = styled(QFrame(), panel="true")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(20, 16, 20, 18)
+        layout.setSpacing(12)
+        layout.addWidget(styled(QLabel(title.replace("&&", "&")), role="h2"))
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(10)
+        grid.setColumnStretch(1, 1)
+        layout.addLayout(grid)
+        return card, grid
+
+    @staticmethod
+    def _row(grid: QGridLayout, row: int, label: str, field) -> None:
+        grid.addWidget(styled(QLabel(label), role="muted"), row, 0)
+        if isinstance(field, QWidget):
+            grid.addWidget(field, row, 1)
+        else:
+            grid.addLayout(field, row, 1)
+
     def reload(self) -> None:
-        """Refresh every control from QSettings (other pages may have changed them)."""
+        """Refresh every control from QSettings (the workspace may have changed them)."""
         for widget, key in (
             (self.recursive_check, "recursive"),
             (self.copy_check, "output_mode"),
@@ -194,9 +213,10 @@ class SettingsController(QObject):
             widget.blockSignals(True)
             widget.setChecked(settings.get(key))
             widget.blockSignals(False)
+        self.theme_combo.setCurrentIndex(max(0, self.theme_combo.findData(settings.get("theme"))))
+        self.language_combo.setCurrentIndex(max(0, self.language_combo.findData(settings.get("language"))))
         self.profile_combo.setCurrentIndex(max(0, self.profile_combo.findData(settings.get("profile"))))
-        folder = settings.get("output_dir")
-        self.output_label.setText(folder or self.tr("Not set"))
+        self.output_label.setText(settings.get("output_dir") or self.tr("Not set"))
         self._refresh_integration()
 
     def _set(self, key: str, value) -> None:
@@ -238,11 +258,20 @@ class SettingsController(QObject):
         self.language_note.show()
         self.language_changed.emit(value)
 
+    def on_copy_check_toggled(self, checked: bool) -> None:
+        if checked and not settings.get("output_dir"):
+            self.on_choose_output_clicked()
+            if not settings.get("output_dir"):
+                self.copy_check.setChecked(False)
+                return
+        self._set("output_mode", checked)
+
     def on_choose_output_clicked(self) -> None:
-        folder = QFileDialog.getExistingDirectory(self._parent, self.tr("Save copies to"), settings.get("output_dir"))
+        folder = QFileDialog.getExistingDirectory(self, self.tr("Save copies to"), settings.get("output_dir"))
         if folder:
-            self._set("output_dir", folder)
+            settings.set("output_dir", folder)
             self.output_label.setText(folder)
+            self.settings_changed.emit()
 
     def on_check_now_clicked(self) -> None:
         self.check_now_btn.setEnabled(False)
@@ -266,11 +295,11 @@ class SettingsController(QObject):
         try:
             created = integration.install()
         except OSError as exc:
-            QMessageBox.warning(self._parent, self.tr("Integration failed"), str(exc))
+            QMessageBox.warning(self, self.tr("Integration failed"), str(exc))
             return
         self._refresh_integration()
         QMessageBox.information(
-            self._parent,
+            self,
             self.tr("Integration added"),
             self.tr(
                 "Right-click a file and look for “Inspect metadata with EOM”. "
@@ -284,6 +313,4 @@ class SettingsController(QObject):
 
     def on_clear_recent_clicked(self) -> None:
         settings.clear_recent()
-        QMessageBox.information(
-            self._parent, self.tr("History cleared"), self.tr("The recent files list is now empty.")
-        )
+        self.settings_changed.emit()
