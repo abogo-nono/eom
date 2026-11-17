@@ -1,6 +1,6 @@
 [project]
 name = "eom"
-version = "2.1.0"
+version = "2.2.0"
 description = "Eye On Metadata - desktop app and CLI to view, export, clean and edit file metadata."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -26,8 +26,7 @@ dev = [
 [tool.ruff]
 line-length = 120
 target-version = "py310"
-# Skip generated Qt files
-extend-exclude = ["app_ui.py", "resources_rc.py", "app - Copy.ui", ".venv"]
+extend-exclude = [".venv", "venv"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]

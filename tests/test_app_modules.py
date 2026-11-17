@@ -12,16 +12,14 @@ import pytest
 from PIL import Image
 from PySide6.QtCore import QSize
 
-import Extractor
 import i18n
 import integration
 import main
-import profiles
+import risk
 import settings
 import theme
 import updater
 import widgets
-from workers import EditWorker, RemovalWorker
 
 # ---------------------------------------------------------------------------
 # settings
@@ -208,42 +206,9 @@ def test_custom_selection_dialog(qtbot) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_removal_worker_profile_output_dir_and_report(qtbot, tmp_path: Path, jpeg_with_exif: Path) -> None:
-    out = tmp_path / "out"
-    worker = RemovalWorker(str(jpeg_with_exif), False, profile=profiles.get("all"), output_dir=str(out))
-    reports = []
-    worker.report_ready.connect(lambda name, report: reports.append(report))
-    with qtbot.waitSignal(worker.finished_all, timeout=5000):
-        worker.start()
-    report = reports[0]
-    assert report["status"] is True
-    assert Path(report["target"]).parent == out
-    assert set(report["diff"]["removed"]) == {"Make", "Model"}
-    assert Extractor.single_image_extractor(str(jpeg_with_exif))["Make"] == "EOM-Test"
-
-
-def test_edit_worker_batch(qtbot, tmp_path: Path, jpeg_with_exif: Path) -> None:
-    worker = EditWorker(
-        str(jpeg_with_exif.parent), True, {jpeg_with_exif.name: jpeg_with_exif.name}, fields={"Author": "Zed"}
-    )
-    results = []
-    worker.result_ready.connect(lambda name, ok: results.append(ok))
-    with qtbot.waitSignal(worker.finished_all, timeout=5000):
-        worker.start()
-    assert results == [True]
-    assert Extractor.single_image_extractor(str(jpeg_with_exif))["Artist"] == "Zed"
-
-
 # ---------------------------------------------------------------------------
 # entry point
 # ---------------------------------------------------------------------------
-
-
-def test_parse_gui_args(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.chdir(tmp_path)
-    assert main.parse_gui_args([]) == ("extract", [])
-    mode, paths = main.parse_gui_args(["--remove", "a.jpg", "b.pdf"])
-    assert mode == "remove" and paths == [str(tmp_path / "a.jpg"), str(tmp_path / "b.pdf")]
 
 
 def test_main_dispatches_cli(capsys) -> None:
@@ -251,26 +216,16 @@ def test_main_dispatches_cli(capsys) -> None:
     assert "social" in capsys.readouterr().out
 
 
-def test_drop_event_loads_files(qtbot, jpeg_with_exif: Path) -> None:
-    from PySide6.QtCore import QMimeData, QPointF, Qt, QUrl
-    from PySide6.QtGui import QDropEvent
-
-    window = main.MainWindow()
-    qtbot.addWidget(window)
-    mime = QMimeData()
-    mime.setUrls([QUrl.fromLocalFile(str(jpeg_with_exif))])
-    event = QDropEvent(QPointF(10, 10), Qt.CopyAction, mime, Qt.LeftButton, Qt.NoModifier)
-    window.dropEvent(event)
-    assert window.ui.stackedWidget.currentIndex() == main.PageIndex.EXTRACT
-    assert window.ui.extract_file_path.text() == str(jpeg_with_exif.resolve())
-    qtbot.waitUntil(lambda: window.ui.extract_btn.isEnabled() and bool(window._extraction.results), timeout=5000)
+def test_parse_gui_args(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main.parse_gui_args([]) == []
+    assert main.parse_gui_args(["--remove", "a.jpg", "b.pdf"]) == [str(tmp_path / "a.jpg"), str(tmp_path / "b.pdf")]
 
 
-def test_settings_page_navigation(qtbot) -> None:
-    window = main.MainWindow()
-    qtbot.addWidget(window)
-    window.ui.menu_settings_btn.click()
-    assert window.ui.stackedWidget.currentIndex() == main.PageIndex.SETTINGS
-    window._settings.copy_check.setChecked(True)
-    assert settings.get("output_mode") is True
-    assert window._removal.copy_check.isChecked()  # pages stay in sync
+def test_icons_render_every_shape(qapp) -> None:
+    import icons
+
+    for name in icons.SHAPES:
+        assert not icons.pixmap(name, 16).isNull(), name
+    assert set(icons.CATEGORY_ICONS) == set(risk.CATEGORIES)
+    assert icons.for_file("x.MP3") == "music" and icons.for_file("x.docx") == "file-text"

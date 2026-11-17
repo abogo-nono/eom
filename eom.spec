@@ -1,7 +1,7 @@
 # PyInstaller spec for EOM. Build with:
 #   pyinstaller eom.spec --noconfirm --clean
 #
-# style.qss (theme template), translations/*.qm and the settings icons are loaded
+# style.qss (theme template) and translations/*.qm are loaded
 # at runtime; app-logo.ico is used as the window icon and
 # for the taskbar/dock icon on all platforms.  On macOS the CI step converts
 # it to app-logo.icns before invoking PyInstaller.
@@ -19,7 +19,11 @@ block_cipher = None
 # Use datas (not binaries) — exiftool is a standalone exe, not a shared library.
 # Putting it in binaries causes PyInstaller to analyse it for DLL deps and
 # silently drop it during the binary reclassification pass.
+# Since ExifTool 12.88 the Windows exe is a launcher: it needs the Perl runtime in
+# the exiftool_files/ folder next to it, so both are bundled.
 ET_DATA = [("exiftool.exe", ".")] if os.path.isfile("exiftool.exe") else []
+if ET_DATA and os.path.isdir("exiftool_files"):
+    ET_DATA.append(("exiftool_files", "exiftool_files"))
 
 # macOS prefers .icns; everywhere else .ico works fine.
 if sys.platform == "darwin":
@@ -35,8 +39,6 @@ a = Analysis(
     datas=[
         ("style.qss", "."),
         ("images/app-logo.ico", "images"),
-        ("icons/light/settings.svg", "icons/light"),
-        ("icons/dark/settings.svg", "icons/dark"),
         ("translations/*.qm", "translations"),
     ]
     + ET_DATA,

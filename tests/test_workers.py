@@ -1,65 +1,52 @@
-"""Tests for QThread workers (ExtractionWorker, RemovalWorker)."""
+"""Tests for the QThread workers (path-list API)."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from workers import ExtractionWorker, RemovalWorker
+import Extractor
+import profiles
+from workers import CleanTask, EditWorker, ExtractionWorker, RemovalWorker
 
 
-def test_extraction_worker_emits_result(qtbot, jpeg_with_exif: Path) -> None:
-    worker = ExtractionWorker(str(jpeg_with_exif), is_batch=False)
-    results = []
-
-    worker.result_ready.connect(lambda name, data: results.append((name, data)))
-
+def test_extraction_worker_emits_per_path(qtbot, jpeg_with_exif: Path, jpeg_without_exif: Path) -> None:
+    worker = ExtractionWorker([str(jpeg_with_exif), str(jpeg_without_exif)])
+    results = {}
+    worker.result_ready.connect(lambda path, data: results.__setitem__(path, data))
     with qtbot.waitSignal(worker.finished_all, timeout=5000):
         worker.start()
-
-    assert results, "Expected at least one result_ready emission"
-    _name, data = results[0]
-    assert data is not None
-    assert data.get("Make") == "EOM-Test"
+    assert results[str(jpeg_with_exif)]["Make"] == "EOM-Test"
+    assert results[str(jpeg_without_exif)] is None
 
 
-def test_extraction_worker_batch(qtbot, jpeg_with_exif: Path) -> None:
-    directory = str(jpeg_with_exif.parent)
-    images = {jpeg_with_exif.name: jpeg_with_exif.name}
-    worker = ExtractionWorker(directory, is_batch=True, images=images)
-    results = []
-
-    worker.result_ready.connect(lambda name, data: results.append((name, data)))
-
+def test_removal_worker_in_place(qtbot, jpeg_with_exif: Path) -> None:
+    worker = RemovalWorker([CleanTask(str(jpeg_with_exif), jpeg_with_exif.name)])
+    reports = []
+    worker.report_ready.connect(lambda path, report: reports.append(report))
     with qtbot.waitSignal(worker.finished_all, timeout=5000):
         worker.start()
+    assert reports[0]["status"] is True
+    assert set(reports[0]["diff"]["removed"]) == {"Make", "Model"}
+    assert Extractor.single_image_extractor(str(jpeg_with_exif)) is None
 
-    names = [r[0] for r in results]
-    assert jpeg_with_exif.name in names
 
-
-def test_removal_worker_emits_result(qtbot, jpeg_with_exif: Path) -> None:
-    worker = RemovalWorker(str(jpeg_with_exif), is_batch=False)
-    results = []
-
-    worker.result_ready.connect(lambda name, status: results.append((name, status)))
-
+def test_removal_worker_copies_keep_structure(qtbot, tmp_path: Path, jpeg_with_exif: Path) -> None:
+    out = tmp_path / "out"
+    task = CleanTask(str(jpeg_with_exif), "trip/day1/photo.jpg", profiles.get("all"))
+    worker = RemovalWorker([task], output_dir=str(out))
+    reports = []
+    worker.report_ready.connect(lambda path, report: reports.append(report))
     with qtbot.waitSignal(worker.finished_all, timeout=5000):
         worker.start()
-
-    assert results
-    _name, status = results[0]
-    assert status is True
+    assert reports[0]["target"] == str(out / "trip" / "day1" / "photo.jpg")
+    assert Extractor.single_image_extractor(str(jpeg_with_exif))["Make"] == "EOM-Test"
 
 
-def test_removal_worker_batch(qtbot, jpeg_with_exif: Path) -> None:
-    directory = str(jpeg_with_exif.parent)
-    images = {jpeg_with_exif.name: jpeg_with_exif.name}
-    worker = RemovalWorker(directory, is_batch=True, images=images)
+def test_edit_worker(qtbot, jpeg_with_exif: Path) -> None:
+    worker = EditWorker([(str(jpeg_with_exif), jpeg_with_exif.name)], fields={"Author": "Zed"})
     results = []
-
-    worker.result_ready.connect(lambda name, status: results.append((name, status)))
-
+    worker.result_ready.connect(lambda path, ok: results.append(ok))
     with qtbot.waitSignal(worker.finished_all, timeout=5000):
         worker.start()
-
-    assert any(s is True for _, s in results)
+    assert results == [True]
+    assert Extractor.single_image_extractor(str(jpeg_with_exif))["Artist"] == "Zed"

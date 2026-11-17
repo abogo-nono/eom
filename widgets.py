@@ -38,6 +38,20 @@ import theme
 from version import __version__
 
 
+def set_badge(label: QLabel, level: str) -> None:
+    """Style *label* as a coloured pill (high | medium | low | none | info)."""
+    label.setProperty("badge", level)
+    label.style().unpolish(label)
+    label.style().polish(label)
+
+
+def styled(widget, **props):
+    """Set dynamic style properties (``kind=``, ``role=``…) and return the widget."""
+    for key, value in props.items():
+        widget.setProperty(key, value)
+    return widget
+
+
 def category_label(category: str) -> str:
     return QCoreApplication.translate("risk", risk.CATEGORIES[category])
 
@@ -121,7 +135,15 @@ def render_preview(path: str, max_size: QSize) -> QImage | None:
         scale = min(max_size.width() / page.width(), max_size.height() / page.height())
         image = doc.render(0, QSize(max(1, int(page.width() * scale)), max(1, int(page.height() * scale))))
         doc.close()
-        return None if image.isNull() else image
+        if image.isNull():
+            return None
+        # Pages render with a transparent background: put them on paper.
+        paper = QImage(image.size(), QImage.Format_RGB32)
+        paper.fill(QColor("white"))
+        painter = QPainter(paper)
+        painter.drawImage(0, 0, image)
+        painter.end()
+        return paper
     if suffix in Extractor._OFFICE_EXTENSIONS:
         try:
             with zipfile.ZipFile(path) as zf:
@@ -163,7 +185,7 @@ class PreviewWidget(QLabel):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setObjectName("preview_label")
+        self.setProperty("role", "muted")
         self.setAlignment(Qt.AlignCenter)
         self.setMinimumHeight(160)
         self.setWordWrap(True)
@@ -244,10 +266,10 @@ class MapWidget(QWidget):
         self._network: QNetworkAccessManager | None = None
         self._drag_from: QPointF | None = None
 
-        self._consent_btn = QPushButton(
-            QCoreApplication.translate("Widgets", "Load map (contacts openstreetmap.org)"), self
+        self._consent_btn = QPushButton(QCoreApplication.translate("Widgets", "Show map"), self)
+        self._consent_btn.setToolTip(
+            QCoreApplication.translate("Widgets", "Loads map tiles from openstreetmap.org (you will be asked first)")
         )
-        self._consent_btn.setObjectName("secondary_btn")
         self._consent_btn.setCursor(Qt.PointingHandCursor)
         self._consent_btn.clicked.connect(self.consent_requested.emit)
 
@@ -438,8 +460,7 @@ class BeforeAfterDialog(QDialog):
             .replace("%3", str(len(diff["remaining"])))
             .replace("%4", risk_summary(residual))
         )
-        summary.setObjectName("risk_banner")
-        summary.setProperty("level", residual.level.name.lower())
+        summary.setProperty("badge", residual.level.name.lower())
         summary.setWordWrap(True)
         layout.addWidget(summary)
 
@@ -488,12 +509,12 @@ class EditDialog(QDialog):
 
         layout = QVBoxLayout(self)
         intro = QLabel(self.tr("Target: %1").replace("%1", target_label))
-        intro.setObjectName("muted_label")
+        intro.setProperty("role", "muted")
         intro.setWordWrap(True)
         layout.addWidget(intro)
 
         hint = QLabel(self.tr("Tick a field to change it. A ticked empty field is cleared."))
-        hint.setObjectName("muted_label")
+        hint.setProperty("role", "muted")
         layout.addWidget(hint)
 
         grid = QGridLayout()
@@ -516,7 +537,7 @@ class EditDialog(QDialog):
         layout.addLayout(grid)
 
         shift_title = QLabel(self.tr("Shift all dates (fix a wrong camera clock)"))
-        shift_title.setObjectName("section_title")
+        shift_title.setProperty("role", "h2")
         layout.addWidget(shift_title)
         shift_row = QHBoxLayout()
         self._days, self._hours, self._minutes = (QSpinBox(), QSpinBox(), QSpinBox())
@@ -532,13 +553,13 @@ class EditDialog(QDialog):
         layout.addLayout(shift_row)
 
         self._error = QLabel()
-        self._error.setObjectName("risk_banner")
-        self._error.setProperty("level", "high")
+        self._error.setProperty("badge", "high")
         self._error.hide()
         layout.addWidget(self._error)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.button(QDialogButtonBox.Ok).setText(self.tr("Apply"))
+        styled(buttons.button(QDialogButtonBox.Ok), kind="primary")
         buttons.accepted.connect(self._validate)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -604,7 +625,7 @@ class CustomSelectionDialog(QDialog):
             if self._metadata
             else self.tr("Tick the categories to remove from every file.")
         )
-        hint.setObjectName("muted_label")
+        hint.setProperty("role", "muted")
         hint.setWordWrap(True)
         layout.addWidget(hint)
 
@@ -645,7 +666,7 @@ class CustomSelectionDialog(QDialog):
             (self.tr("Select none"), set()),
         ):
             btn = QPushButton(text)
-            btn.setObjectName("secondary_btn")
+            btn.setProperty("kind", "ghost")
             btn.clicked.connect(lambda _=False, c=cats: self._select(c))
             quick.addWidget(btn)
         quick.addStretch()

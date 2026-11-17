@@ -5,11 +5,22 @@ Cross-platform by design, EOM runs on **Windows**, **Linux**, and **macOS** with
 
 ## 🖼️ Gallery
 
-<img src='./screenshots/Screenshot from 2024-03-27 00-27-50.png' alt='EOM Screenshot'>
-<img src='./screenshots/Screenshot from 2024-03-20 21-00-06.png' alt='EOM Screenshot'>
-<img src='./screenshots/Screenshot from 2024-03-27 00-38-04.png' alt='EOM Screenshot'>
-<img src='./screenshots/Screenshot from 2024-03-27 00-43-14.png' alt='EOM Screenshot'>
-<img src='./screenshots/Screenshot from 2024-03-27 00-47-08.png' alt='EOM Screenshot'>
+<img src='./screenshots/workspace-dark.png' alt='EOM workspace: files with their privacy risk, tags grouped by category with a live cleaning preview, preview and map'>
+<img src='./screenshots/workspace-light.png' alt='EOM workspace in the light theme'>
+<img src='./screenshots/start-dark.png' alt='EOM start screen: drop zone and recent folders'>
+
+<table>
+  <tr>
+    <td><img src='./screenshots/settings-dark.png' alt='Settings page: theme, language, default cleaning profile, copies folder and opt-in network options'></td>
+    <td><img src='./screenshots/about-dark.png' alt='About page: metadata engines, version and bug report with system information'></td>
+  </tr>
+  <tr>
+    <td align='center'>Settings</td>
+    <td align='center'>About</td>
+  </tr>
+</table>
+
+<img src='./screenshots/workspace-fr.png' alt='EOM workspace with the French interface'>
 
 ## ❓ What is EOM?
 
@@ -24,7 +35,7 @@ Eye On Metadata (EOM) is a lightweight privacy tool that gives you full control 
 - **Editing** — set title, author, copyright, description and date, or shift every date by days/hours (wrong camera clock), on one file or a whole folder.
 - **Preview & map** — thumbnail of images, PDF first page, Office thumbnails and audio cover art; geotagged files are shown on an OpenStreetMap map (opt-in, see *Privacy*).
 - **Export** to JSON, CSV, HTML report or plain text.
-- **Drag & drop** files or folders anywhere on the window, **recursive** folder processing, **search/filter** in the tag table, **recent files**.
+- **One workspace**: drag & drop files or folders anywhere, risk filter, tags grouped by category, search, recent files on the start screen, keyboard shortcuts.
 - **Command-line interface** for scripts and CI (see below).
 - **Right-click menu integration** (Linux file managers, Windows Explorer), **dark / light theme**, **English / French** interface, optional **update check**.
 
@@ -64,22 +75,16 @@ Pre-built binaries are attached to every [GitHub Release](https://github.com/abo
 | macOS Intel | `eom-macos-x86_64.zip` | macOS 12 Monterey+ |
 | macOS Apple Silicon | `eom-macos-arm64.zip` | macOS 14 Sonoma+ |
 
-## 📤 Inspect metadata
+## 🧭 How it works
 
-1. Click **Extract** (or simply drop files / a folder on the window)
-2. Choose **single file** or **directory** (tick *Sub-folders* to recurse)
-3. Click **Extract**
+Everything happens on one screen:
 
-Tags are listed most-sensitive first with the file's risk score, a preview and — for geotagged files — a map. Type in the filter box to search tags and values. Click **Export** to save the results as JSON, CSV, HTML or text, or **Edit…** to change fields or shift dates.
-
-## 🧹 Clean metadata
-
-1. Click **Remove** and select a file or folder
-2. Pick a profile (or *Custom selection…* to choose categories / individual tags)
-3. Optionally tick **Save copies to:** to keep the originals untouched
-4. Click **Remove** — or **Export and Remove** to keep a copy of the metadata first
-
-Double-click a result line to compare before / after.
+1. **Drop files or folders** anywhere on the window (or use *Add files* / *Add a folder*, `Ctrl+O`). Folders can include sub-folders (`⋯` menu).
+2. The **file list** shows each file's privacy risk (*High / Medium / Low*). Filter it by risk level.
+3. Select a file to see its **tags grouped by category** — location, author, serial numbers, device, dates… — with a preview and, for geotagged files, a map. Search with `Ctrl+F`; right-click to copy values.
+4. Pick a **cleaning profile** in the bottom bar. Each tag shows live whether it will be **removed** or **kept**. With *Custom…*, tick categories for every file or individual tags for the current one.
+5. Optionally tick **Copies in** to keep the originals untouched, then click **Clean** (`Ctrl+Enter`). Select several files to clean only those.
+6. Open **Before / after** to see exactly what changed. Use **Export** (JSON, CSV, HTML, text — or *Export, then clean*) and **Edit…** to change fields or shift dates.
 
 ## ⌨️ Command line
 
