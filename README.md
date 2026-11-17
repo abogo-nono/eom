@@ -9,6 +9,19 @@ Cross-platform by design, EOM runs on **Windows**, **Linux**, and **macOS** with
 <img src='./screenshots/workspace-light.png' alt='EOM workspace in the light theme'>
 <img src='./screenshots/start-dark.png' alt='EOM start screen: drop zone and recent folders'>
 
+<table>
+  <tr>
+    <td><img src='./screenshots/settings-dark.png' alt='Settings page: theme, language, default cleaning profile, copies folder and opt-in network options'></td>
+    <td><img src='./screenshots/about-dark.png' alt='About page: metadata engines, version and bug report with system information'></td>
+  </tr>
+  <tr>
+    <td align='center'>Settings</td>
+    <td align='center'>About</td>
+  </tr>
+</table>
+
+<img src='./screenshots/workspace-fr.png' alt='EOM workspace with the French interface'>
+
 ## ❓ What is EOM?
 
 Eye On Metadata (EOM) is a lightweight privacy tool that gives you full control over the hidden data embedded in your files. Inspect EXIF data before sharing a photo, see at a glance how much a file reveals about you, strip GPS coordinates or author names, fix a wrong camera clock — all locally, with no upload, no account and no cloud.

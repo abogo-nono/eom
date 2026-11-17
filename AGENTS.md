@@ -47,6 +47,8 @@ PySide6 desktop app (and CLI) for viewing, exporting, cleaning and editing image
   building on Windows). On macOS, the CI step generates `images/app-logo.icns` from `app-logo.ico`
   using Pillow before invoking PyInstaller.
 - **CI**: [.github/workflows/ci.yml](.github/workflows/ci.yml) runs ruff + pytest on Linux/Windows/macOS × Python 3.10–3.12.
+- **Executables for a PR**: the release workflow also runs on every pull request and uploads the 3
+  binaries as run artifacts (no GitHub Release is created).
 - **Releases**: push a `v*` tag → [.github/workflows/release.yml](.github/workflows/release.yml) builds
   PyInstaller artifacts for 4 targets and attaches zips to a GitHub Release:
   - `eom-linux-x86_64` — built inside `python:3.10-focal` container (glibc 2.31 → Ubuntu 20.04+)

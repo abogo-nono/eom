@@ -3,10 +3,18 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # Every pull request builds the executables too: download them from the
+  # run's "Artifacts" section to test a branch before it is merged.
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: write
+
+# A new push to a PR cancels its previous, now outdated, build.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # ── Linux ───────────────────────────────────────────────────────────────────
@@ -103,7 +111,7 @@ jobs:
   # ── GitHub Release ───────────────────────────────────────────────────────────
   release:
     needs: [build-linux, build]
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
