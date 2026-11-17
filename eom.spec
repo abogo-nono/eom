@@ -11,8 +11,6 @@
 import os
 import sys
 
-from PyInstaller.utils.hooks import collect_submodules
-
 block_cipher = None
 
 # Bundle the standalone exiftool.exe when present (downloaded during Windows CI).
@@ -42,10 +40,22 @@ a = Analysis(
         ("translations/*.qm", "translations"),
     ]
     + ET_DATA,
-    hiddenimports=collect_submodules("PySide6"),
+    # Only the Qt modules EOM imports: PyInstaller follows these imports itself,
+    # so pulling in every PySide6 submodule only added WebEngine, Quick, 3D,
+    # Multimedia… (~150 MB per binary) that the app never loads.
+    hiddenimports=[],
     hookspath=[],
     runtime_hooks=[],
-    excludes=[],
+    excludes=[
+        "tkinter",
+        "PySide6.QtWebEngineCore",
+        "PySide6.QtWebEngineWidgets",
+        "PySide6.QtQuick",
+        "PySide6.QtQml",
+        "PySide6.Qt3DCore",
+        "PySide6.QtMultimedia",
+        "PySide6.QtDesigner",
+    ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
