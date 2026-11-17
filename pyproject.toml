@@ -1,16 +1,20 @@
 [project]
 name = "eom"
-version = "0.1.0"
-description = "Eye On Metadata - desktop app to view, export, and remove image metadata."
+version = "2.2.0"
+description = "Eye On Metadata - desktop app and CLI to view, export, clean and edit file metadata."
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Abogo Lincoln" }]
 dependencies = [
     "PySide6>=6.6,<7",
     "Pillow>=10,<13",
+    "pypdf>=5,<6",
+    "mutagen>=1.47",
 ]
 
 [project.optional-dependencies]
+# HEIC/HEIF support for the Pillow fallback (ExifTool handles HEIC without it).
+heif = ["pillow-heif>=0.16"]
 dev = [
     "pytest>=8",
     "pytest-qt>=4.4",
@@ -22,8 +26,7 @@ dev = [
 [tool.ruff]
 line-length = 120
 target-version = "py310"
-# Skip generated Qt files
-extend-exclude = ["app_ui.py", "resources_rc.py", "app - Copy.ui", ".venv"]
+extend-exclude = [".venv", "venv"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]

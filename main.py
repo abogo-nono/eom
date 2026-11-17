@@ -1,32 +1,50 @@
 """EOM – Eye On Metadata – application entry point.
 
-MainWindow is intentionally minimal: window chrome, page navigation,
-and instantiation of the two feature controllers.
+The window is built in code (no Qt Designer file): a frameless window with a
+custom title bar, a slim navigation sidebar, three pages (workspace, settings,
+about) and a status bar.
+
+``python main.py``                       → GUI
+``python main.py photo.jpg folder/``     → GUI with those files loaded
+``python main.py extract photo.jpg``     → command-line interface (see cli.py)
 """
 
 from __future__ import annotations
 
-import platform
 import sys
 from enum import IntEnum
 from pathlib import Path
 
-from PySide6.QtCore import QFile, Qt, QTextStream, QTimer, QUrl
-from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon
+from PySide6.QtCore import QEvent, QPoint, QRect, Qt, QTimer
+from PySide6.QtGui import QIcon, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
+    QButtonGroup,
     QHBoxLayout,
     QLabel,
     QMainWindow,
-    QPlainTextEdit,
-    QPushButton,
+    QSizeGrip,
+    QStackedWidget,
+    QToolButton,
     QVBoxLayout,
+    QWidget,
 )
 
+import cli
 import exiftool_backend
-from app_ui import Ui_MainWindow
-from controllers.extraction import ExtractionController
-from controllers.removal import RemovalController
+import i18n
+import icons
+import settings
+import theme
+import updater
+from version import __version__
+from views.about import AboutView
+from views.settings_view import SettingsView
+from views.workspace import WorkspaceView
+from widgets import set_badge, styled
+
+RESIZE_MARGIN = 6
+NAV_ICONS = {0: "layers", 1: "settings", 2: "info"}
 
 
 def _resource_path(rel: str) -> str:
@@ -36,282 +54,350 @@ def _resource_path(rel: str) -> str:
 
 
 class PageIndex(IntEnum):
-    HOME = 0
-    EXTRACT = 1
-    REMOVE = 2
-    REPORT = 3
+    WORKSPACE = 0
+    SETTINGS = 1
+    ABOUT = 2
+
+
+class TitleBar(QWidget):
+    """Logo, title, status chips and window buttons. Drag to move, double-click to maximise."""
+
+    def __init__(self, window: QMainWindow) -> None:
+        super().__init__(window)
+        self.setObjectName("TitleBar")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setFixedHeight(42)
+        self._window = window
+        self._drag_from: QPoint | None = None
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(14, 0, 6, 0)
+        layout.setSpacing(8)
+        logo = QLabel()
+        logo.setPixmap(window.windowIcon().pixmap(22, 22))
+        layout.addWidget(logo)
+        layout.addWidget(styled(QLabel("Eye On Metadata"), role="brand"))
+        layout.addStretch()
+
+        self.update_chip = QLabel()
+        self.update_chip.setOpenExternalLinks(True)
+        set_badge(self.update_chip, "info")
+        self.update_chip.hide()
+        layout.addWidget(self.update_chip, 0, Qt.AlignVCenter)
+
+        available = exiftool_backend.is_available()
+        self.exiftool_chip = QLabel(self.tr("ExifTool on") if available else self.tr("ExifTool off"))
+        set_badge(self.exiftool_chip, "low" if available else "medium")
+        self.exiftool_chip.setToolTip(
+            self.tr("ExifTool is installed and active as the primary metadata backend.")
+            if available
+            else self.tr("ExifTool not found in PATH. Using built-in backends (Pillow / mutagen / pypdf).")
+        )
+        layout.addWidget(self.exiftool_chip, 0, Qt.AlignVCenter)
+        layout.addSpacing(8)
+
+        self.min_btn = self._win_button("minus", self.tr("Minimize"), window.showMinimized)
+        self.max_btn = self._win_button("maximize", self.tr("Maximize"), window.toggle_maximized)
+        self.close_btn = self._win_button("x", self.tr("Close"), window.close, close=True)
+        for b in (self.min_btn, self.max_btn, self.close_btn):
+            layout.addWidget(b)
+
+    def _win_button(self, name: str, tip: str, slot, close: bool = False) -> QToolButton:
+        btn = QToolButton(self)
+        btn.setObjectName("WinClose" if close else "WinButton")
+        btn.setToolTip(tip)
+        btn.setFixedSize(34, 30)
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.clicked.connect(slot)
+        icons.bind(btn, name, "muted", 16)
+        return btn
+
+    def refresh_max_icon(self) -> None:
+        maximized = self._window.isMaximized()
+        icons.bind(self.max_btn, "minimize" if maximized else "maximize", "muted", 16)
+        self.max_btn.setToolTip(self.tr("Restore") if maximized else self.tr("Maximize"))
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        if event.button() != Qt.LeftButton:
+            return
+        handle = self._window.windowHandle()
+        # startSystemMove() delegates to the window manager (Wayland, X11, Windows, macOS);
+        # fall back to manual moving when it is unavailable (e.g. offscreen tests).
+        if not handle or not handle.startSystemMove():
+            self._drag_from = event.globalPosition().toPoint()
+
+    def mouseMoveEvent(self, event) -> None:  # noqa: N802
+        if self._drag_from is not None:
+            delta = event.globalPosition().toPoint() - self._drag_from
+            self._window.move(self._window.pos() + delta)
+            self._drag_from = event.globalPosition().toPoint()
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        self._drag_from = None
+
+    def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802
+        if event.button() == Qt.LeftButton:
+            self._window.toggle_maximized()
+
+
+class Sidebar(QWidget):
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("Sidebar")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setFixedWidth(84)
+        self.layout_ = QVBoxLayout(self)
+        self.layout_.setContentsMargins(8, 12, 8, 12)
+        self.layout_.setSpacing(4)
+        self.group = QButtonGroup(self)
+        self.group.setExclusive(True)
+        self.buttons: dict[int, QToolButton] = {}
+
+    def add(self, index: int, text: str, tooltip: str, bottom: bool = False) -> QToolButton:
+        btn = QToolButton(self)
+        btn.setObjectName("NavButton")
+        btn.setText(text)
+        btn.setToolTip(tooltip)
+        btn.setCheckable(True)
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        btn.setFixedSize(68, 60)
+        self.group.addButton(btn, index)
+        if bottom:
+            self.layout_.addStretch()
+        self.layout_.addWidget(btn, 0, Qt.AlignHCenter)
+        self.buttons[index] = btn
+        return btn
 
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-
-        self.ui = Ui_MainWindow()
-        self.ui.setupUi(self)
         self.setWindowIcon(QIcon(_resource_path("images/app-logo.ico")))
-
-        # Frameless window — custom drag + chrome buttons.
-        self.setWindowFlags(Qt.FramelessWindowHint)
-        self.draggable = True
-        self.old_pos = None
-        self.ui.header_widget.mousePressEvent = self.mouse_press_event
-        self.ui.header_widget.mouseMoveEvent = self.mouse_move_event
-        self.ui.header_widget.mouseReleaseEvent = self.mouse_release_event
-
-        self.update_maximize_button_icon()
-        self.ui.minimize_btn.clicked.connect(self.showMinimized)
-        self.ui.maximize_btn.clicked.connect(self.toggle_maximized)
-        self.ui.close_btn.clicked.connect(self.close)
-
         self.setWindowTitle("Eye On Metadata")
-        self.setMinimumSize(850, 600)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Window)
+        self.setMinimumSize(980, 640)
+        self.resize(1280, 800)
+        self.setAcceptDrops(True)
 
-        # Default page.
-        self.ui.stackedWidget.setCurrentIndex(PageIndex.HOME)
-        self.ui.menu_docs_btn.setChecked(True)
+        root = QWidget()
+        root.setObjectName("Root")
+        self.setCentralWidget(root)
+        outer = QVBoxLayout(root)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
 
-        # Page navigation.
-        self.ui.about_btn.clicked.connect(self.on_about_btn_clicked)
-        self.ui.menu_extract_btn.clicked.connect(self.on_menu_extract_btn_toggled)
-        self.ui.menu_remove_btn.clicked.connect(self.on_menu_remove_btn_toggled)
-        self.ui.menu_docs_btn.clicked.connect(self.on_menu_docs_btn_toggled)
-        self.ui.menu_report_btn.clicked.connect(self.on_menu_report_btn_toggled)
+        self.title_bar = TitleBar(self)
+        outer.addWidget(self.title_bar)
 
-        # Feature controllers — they wire their own signals.
-        self._extraction = ExtractionController(self.ui, self)
-        self._removal = RemovalController(self.ui, self, self._extraction.on_export_btn_clicked)
-        self._setup_report_page()
+        body = QHBoxLayout()
+        body.setContentsMargins(0, 0, 0, 0)
+        body.setSpacing(0)
+        self.sidebar = Sidebar()
+        body.addWidget(self.sidebar)
+        self.pages = QStackedWidget()
+        body.addWidget(self.pages, 1)
+        outer.addLayout(body, 1)
 
-        # ExifTool status label — inserted left of the window chrome buttons.
-        self._exiftool_label = QLabel(self.ui.header_widget)
-        if exiftool_backend.is_available():
-            self._exiftool_label.setText("ExifTool ✓")
-            self._exiftool_label.setStyleSheet("color: #4caf50; font-size: 11px; padding-right: 8px;")
-        else:
-            self._exiftool_label.setText("ExifTool ✗")
-            self._exiftool_label.setStyleSheet("color: #ff9800; font-size: 11px; padding-right: 8px;")
-        self._exiftool_label.setToolTip(
-            "ExifTool is installed and active as the primary metadata backend."
-            if exiftool_backend.is_available()
-            else "ExifTool not found in PATH. Using built-in backends (Pillow / mutagen / pypdf)."
-        )
-        # Insert before the chrome-buttons layout (index 1 in horizontalLayout_6).
-        self.ui.horizontalLayout_6.insertWidget(1, self._exiftool_label)
+        self.workspace = WorkspaceView()
+        self.settings_view = SettingsView()
+        self.about_view = AboutView(self.windowIcon())
+        for page in (self.workspace, self.settings_view, self.about_view):
+            self.pages.addWidget(page)
+
+        self.sidebar.add(PageIndex.WORKSPACE, self.tr("Files"), self.tr("Inspect and clean files (Ctrl+1)"))
+        self.sidebar.add(PageIndex.SETTINGS, self.tr("Settings"), self.tr("Settings (Ctrl+,)"), bottom=True)
+        self.sidebar.add(PageIndex.ABOUT, self.tr("About"), self.tr("About EOM and bug reports"))
+        self.sidebar.group.idClicked.connect(self.show_page)
+
+        # Status bar with a resize grip.
+        status = QWidget()
+        status.setObjectName("StatusBar")
+        status.setAttribute(Qt.WA_StyledBackground, True)
+        sl = QHBoxLayout(status)
+        sl.setContentsMargins(12, 3, 2, 3)
+        self.status_label = QLabel(self.tr("Ready — drop files anywhere to start."))
+        sl.addWidget(self.status_label, 1)
+        sl.addWidget(QLabel(f"v{__version__}"))
+        sl.addWidget(QSizeGrip(status), 0, Qt.AlignBottom | Qt.AlignRight)
+        outer.addWidget(status)
+        self._status_timer = QTimer(self)
+        self._status_timer.setSingleShot(True)
+        self._status_timer.setInterval(10000)
+        self._status_timer.timeout.connect(lambda: self.status_label.setText(""))
+
+        self.workspace.message.connect(self.show_message)
+        self.settings_view.theme_changed.connect(self._on_theme_changed)
+        self.settings_view.settings_changed.connect(self.workspace.reload_settings)
+
+        QShortcut(QKeySequence("Ctrl+,"), self, activated=lambda: self.show_page(PageIndex.SETTINGS))
+        QShortcut(QKeySequence("Ctrl+1"), self, activated=lambda: self.show_page(PageIndex.WORKSPACE))
+
+        # Edge resizing for the frameless window.
+        QApplication.instance().installEventFilter(self)
+
+        self._update_checker: updater.UpdateChecker | None = None
+        if settings.get("check_updates"):
+            QTimer.singleShot(1500, self._check_updates)
+
+        self.show_page(PageIndex.WORKSPACE)
+
+    # ------------------------------------------------------------------
+    # Pages & messages
+    # ------------------------------------------------------------------
+
+    def show_page(self, index: int) -> None:
+        if index == PageIndex.SETTINGS:
+            self.settings_view.reload()
+        self.pages.setCurrentIndex(index)
+        self.sidebar.buttons[index].setChecked(True)
+        for i, btn in self.sidebar.buttons.items():
+            icons.bind(btn, NAV_ICONS[i], "primary" if i == index else "muted", 22)
+
+    def show_message(self, text: str) -> None:
+        self.status_label.setText(text)
+        self._status_timer.start()
+
+    def open_paths(self, paths: list[str]) -> int:
+        """Add *paths* to the workspace and show it."""
+        self.show_page(PageIndex.WORKSPACE)
+        return self.workspace.add_paths(paths)
 
     # ------------------------------------------------------------------
     # Window chrome
     # ------------------------------------------------------------------
-
-    def mouse_press_event(self, event) -> None:
-        # startSystemMove() delegates to the window manager — works on Wayland,
-        # X11, Windows, and macOS. Falls back to manual delta on unsupported
-        # platforms (e.g. offscreen in tests).
-        if (
-            event.button() == Qt.LeftButton
-            and self.draggable
-            and (not self.windowHandle() or not self.windowHandle().startSystemMove())
-        ):
-            self.old_pos = event.globalPosition().toPoint()
-
-    def mouse_move_event(self, event) -> None:
-        # Only reached when startSystemMove() was unavailable (fallback path).
-        if self.old_pos:
-            delta = event.globalPosition().toPoint() - self.old_pos
-            self.move(self.pos() + delta)
-            self.old_pos = event.globalPosition().toPoint()
-
-    def mouse_release_event(self, event) -> None:
-        if event.button() == Qt.LeftButton:
-            self.old_pos = None
 
     def toggle_maximized(self) -> None:
         if self.isMaximized():
             self.showNormal()
         else:
             self.showMaximized()
-        self.update_maximize_button_icon()
+        self.title_bar.refresh_max_icon()
 
-    def update_maximize_button_icon(self) -> None:
-        icon = (
-            ":/outline/icons/outline/minimize-2.svg" if self.isMaximized() else ":/outline/icons/outline/maximize-2.svg"
-        )
-        self.ui.maximize_btn.setIcon(QIcon(icon))
+    def changeEvent(self, event) -> None:  # noqa: N802
+        if event.type() == QEvent.WindowStateChange:
+            self.title_bar.refresh_max_icon()
+        super().changeEvent(event)
 
-    # ------------------------------------------------------------------
-    # Page navigation
-    # ------------------------------------------------------------------
+    def _edges_at(self, global_pos: QPoint) -> Qt.Edge:
+        edges = Qt.Edge(0)
+        if self.isMaximized():
+            return edges
+        pos = self.mapFromGlobal(global_pos)
+        rect = QRect(0, 0, self.width(), self.height())
+        if not rect.contains(pos):
+            return edges
+        if pos.x() <= RESIZE_MARGIN:
+            edges |= Qt.LeftEdge
+        if pos.x() >= rect.width() - RESIZE_MARGIN:
+            edges |= Qt.RightEdge
+        if pos.y() <= RESIZE_MARGIN:
+            edges |= Qt.TopEdge
+        if pos.y() >= rect.height() - RESIZE_MARGIN:
+            edges |= Qt.BottomEdge
+        return edges
 
-    def on_about_btn_clicked(self) -> None:
-        from PySide6.QtWidgets import QDialog, QDialogButtonBox
+    def eventFilter(self, obj, event) -> bool:  # noqa: N802
+        etype = event.type()
+        if etype not in (QEvent.MouseMove, QEvent.MouseButtonPress):
+            return False
+        if not isinstance(obj, QWidget) or obj.window() is not self:
+            return False
+        edges = self._edges_at(event.globalPosition().toPoint())
+        if etype == QEvent.MouseMove and not event.buttons():
+            horizontal = bool(edges & (Qt.LeftEdge | Qt.RightEdge))
+            vertical = bool(edges & (Qt.TopEdge | Qt.BottomEdge))
+            if horizontal and vertical:
+                main_diag = (edges & Qt.LeftEdge and edges & Qt.TopEdge) or (
+                    edges & Qt.RightEdge and edges & Qt.BottomEdge
+                )
+                self.setCursor(Qt.SizeFDiagCursor if main_diag else Qt.SizeBDiagCursor)
+            elif horizontal:
+                self.setCursor(Qt.SizeHorCursor)
+            elif vertical:
+                self.setCursor(Qt.SizeVerCursor)
+            else:
+                self.unsetCursor()
+        elif etype == QEvent.MouseButtonPress and event.button() == Qt.LeftButton and edges:
+            handle = self.windowHandle()
+            if handle is not None and handle.startSystemResize(edges):
+                return True
+        return False
 
-        dlg = QDialog(self)
-        dlg.setWindowTitle("About EOM")
-        dlg.setFixedSize(420, 320)
-        dlg.setStyleSheet("background: #0f1515; color: #e0e0e0;")
-
-        layout = QVBoxLayout(dlg)
-        layout.setContentsMargins(32, 28, 32, 20)
-        layout.setSpacing(10)
-
-        # Title row
-        title = QLabel("👁️ Eye On Metadata")
-        title.setStyleSheet("font-size: 20px; font-weight: 700; color: #00bcd4;")
-        layout.addWidget(title)
-
-        version = QLabel("v2  ·  open-source  ·  MIT license")
-        version.setStyleSheet("font-size: 12px; color: #888;")
-        layout.addWidget(version)
-
-        # Separator
-        sep = QLabel()
-        sep.setFixedHeight(1)
-        sep.setStyleSheet("background: #1e2c2c; margin: 4px 0;")
-        layout.addWidget(sep)
-
-        # Description
-        desc = QLabel(
-            "EOM reads, exports, and strips metadata from your files — "
-            "locally, with no upload, no account, no cloud.\n\n"
-            "Supports JPEG · PNG · TIFF · MP3 · FLAC · OGG · WAV · AIFF · "
-            "M4A · WMA · MP4 · MKV · WebM · PDF"
-        )
-        desc.setWordWrap(True)
-        desc.setStyleSheet("font-size: 13px; color: #ccc; line-height: 1.5;")
-        layout.addWidget(desc)
-
-        layout.addStretch()
-
-        # Links row
-        links = QLabel(
-            '<a href="https://github.com/abogo-nono/eom" style="color:#00bcd4;">GitHub repository</a>'
-            "  ·  "
-            '<a href="https://github.com/abogo-nono" style="color:#00bcd4;">Abogo Lincoln</a>'
-        )
-        links.setOpenExternalLinks(True)
-        links.setStyleSheet("font-size: 12px;")
-        layout.addWidget(links)
-
-        # Close button
-        buttons = QDialogButtonBox(QDialogButtonBox.Close)
-        buttons.setStyleSheet(
-            "QPushButton { background: #00bcd4; color: #0b0f0f; font-weight: 600;"
-            " padding: 6px 20px; border-radius: 4px; border: none; }"
-            "QPushButton:hover { background: #00acc1; }"
-        )
-        buttons.rejected.connect(dlg.reject)
-        layout.addWidget(buttons)
-
-        dlg.exec()
-
-    def on_menu_home_btn_toggled(self) -> None:
-        self.ui.stackedWidget.setCurrentIndex(PageIndex.HOME)
-
-    def on_menu_extract_btn_toggled(self) -> None:
-        self.ui.stackedWidget.setCurrentIndex(PageIndex.EXTRACT)
-
-    def on_menu_remove_btn_toggled(self) -> None:
-        self.ui.stackedWidget.setCurrentIndex(PageIndex.REMOVE)
-
-    def on_menu_docs_btn_toggled(self) -> None:
-        self.ui.stackedWidget.setCurrentIndex(PageIndex.HOME)
-
-    def on_menu_report_btn_toggled(self) -> None:
-        self.ui.stackedWidget.setCurrentIndex(PageIndex.REPORT)
+    def closeEvent(self, event) -> None:  # noqa: N802
+        app = QApplication.instance()
+        if app is not None:
+            app.removeEventFilter(self)
+        self.workspace.shutdown()
+        super().closeEvent(event)
 
     # ------------------------------------------------------------------
-    # Report page (built programmatically — app_ui.py page is empty)
+    # Drag & drop (any page → workspace)
     # ------------------------------------------------------------------
 
-    def _setup_report_page(self) -> None:
-        page = self.ui.report_page
+    def dragEnterEvent(self, event) -> None:  # noqa: N802
+        if event.mimeData().hasUrls() and any(u.isLocalFile() for u in event.mimeData().urls()):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
 
-        # Remove the stray generated label.
-        for child in page.findChildren(QLabel):
-            child.deleteLater()
+    def dropEvent(self, event) -> None:  # noqa: N802
+        paths = [u.toLocalFile() for u in event.mimeData().urls() if u.isLocalFile()]
+        if paths:
+            event.acceptProposedAction()
+            self.open_paths(paths)
 
-        root = QVBoxLayout(page)
-        root.setContentsMargins(40, 30, 40, 30)
-        root.setSpacing(14)
+    # ------------------------------------------------------------------
+    # Theme / updates
+    # ------------------------------------------------------------------
 
-        title = QLabel("Report a Bug")
-        title.setStyleSheet("font-size: 18px; font-weight: 600;")
-        root.addWidget(title)
+    def _on_theme_changed(self, name: str) -> None:
+        theme.apply(QApplication.instance(), name)
+        icons.refresh_bound()
+        self.show_page(self.pages.currentIndex())
+        self.workspace.retheme()
 
-        hint = QLabel(
-            "Include the system info below when opening a bug report \u2014 "
-            "it helps reproduce the problem faster.\n"
-            "Click \u2018Open GitHub Issue\u2019 to go straight to the new-issue form."
-        )
-        hint.setWordWrap(True)
-        hint.setStyleSheet("color: #aaa; font-size: 13px;")
-        root.addWidget(hint)
+    def _check_updates(self) -> None:
+        self._update_checker = updater.UpdateChecker(self)
+        self._update_checker.finished.connect(self._on_update_result)
+        self._update_checker.check()
 
-        info_heading = QLabel("System info")
-        info_heading.setStyleSheet("font-size: 12px; color: #888; margin-top: 6px;")
-        root.addWidget(info_heading)
-
-        self._report_info_box = QPlainTextEdit(self._report_system_info())
-        self._report_info_box.setReadOnly(True)
-        self._report_info_box.setMaximumHeight(110)
-        self._report_info_box.setStyleSheet(
-            "font-family: monospace; font-size: 12px; background: #131a1a; border-radius: 4px; padding: 8px;"
-        )
-        root.addWidget(self._report_info_box)
-
-        btn_row = QHBoxLayout()
-        btn_row.setSpacing(10)
-
-        open_btn = QPushButton("Open GitHub Issue")
-        open_btn.setCursor(Qt.PointingHandCursor)
-        open_btn.setStyleSheet(
-            "QPushButton { background: #00bcd4; color: #0b0f0f; font-weight: 600;"
-            " padding: 8px 18px; border-radius: 4px; border: none; }"
-            "QPushButton:hover { background: #00acc1; }"
-        )
-        open_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/abogo-nono/eom/issues/new")))
-
-        self._copy_btn = QPushButton("Copy System Info")
-        self._copy_btn.setCursor(Qt.PointingHandCursor)
-        self._copy_btn.setStyleSheet(
-            "QPushButton { background: transparent; color: #00bcd4; font-weight: 500;"
-            " padding: 8px 18px; border-radius: 4px; border: 1px solid #00bcd4; }"
-            "QPushButton:hover { background: rgba(0, 188, 212, 0.1); }"
-        )
-        self._copy_btn.clicked.connect(self._on_copy_report_info)
-
-        btn_row.addWidget(open_btn)
-        btn_row.addWidget(self._copy_btn)
-        btn_row.addStretch()
-        root.addLayout(btn_row)
-        root.addStretch()
-
-    @staticmethod
-    def _report_system_info() -> str:
-        exiftool_status = exiftool_backend._EXIFTOOL_PATH if exiftool_backend.is_available() else "not found"
-        return "\n".join(
-            [
-                "EOM version : v2",
-                f"Python      : {sys.version.split()[0]}",
-                f"Platform    : {platform.system()} {platform.release()} ({platform.machine()})",
-                f"ExifTool    : {exiftool_status}",
-            ]
-        )
-
-    def _on_copy_report_info(self) -> None:
-        QGuiApplication.clipboard().setText(self._report_system_info())
-        self._copy_btn.setText("Copied!")
-        QTimer.singleShot(2000, lambda: self._copy_btn.setText("Copy System Info"))
+    def _on_update_result(self, tag: str, url: str, _error: str) -> None:
+        if tag:
+            self.title_bar.update_chip.setText(
+                self.tr("<a href='%2'>Update available: %1</a>").replace("%1", tag).replace("%2", url)
+            )
+            self.title_bar.update_chip.show()
 
 
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
-    style_file = QFile("style.qss")
-    style_file.open(QFile.ReadOnly | QFile.Text)
-    style_stream = QTextStream(style_file)
-    app.setStyleSheet(style_stream.readAll())
+
+def parse_gui_args(argv: list[str]) -> list[str]:
+    """Paths to open. ``--extract`` / ``--remove`` (file-manager entries) are accepted and ignored."""
+    return [str(Path(a).expanduser().resolve()) for a in argv if not a.startswith("-")]
+
+
+def main(argv: list[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    if argv and (argv[0] in cli.COMMANDS or argv[0] in ("-h", "--help", "--version")):
+        return cli.main(argv)
+
+    paths = parse_gui_args(argv)
+    app = QApplication.instance() or QApplication(sys.argv[:1])
+    app.setApplicationName("Eye On Metadata")
+    app.setApplicationVersion(__version__)
+    i18n.install(app, settings.get("language"))
+    theme.apply(app, settings.get("theme"))
 
     window = MainWindow()
     window.show()
+    if paths:
+        QTimer.singleShot(0, lambda: window.open_paths(paths))
+    return app.exec()
 
-    sys.exit(app.exec())
+
+if __name__ == "__main__":
+    sys.exit(main())

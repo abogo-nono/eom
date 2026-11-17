@@ -83,6 +83,42 @@ def extract(path: str) -> dict | None:
     return {str(k): str(v) for k, v in raw.items()} if raw else None
 
 
+def _run(args: list[str]) -> subprocess.CompletedProcess | None:
+    """Run ExifTool with *args* (never through a shell); None on OS error/timeout."""
+    if not _EXIFTOOL_PATH:
+        return None
+    try:
+        return subprocess.run([_EXIFTOOL_PATH, *args], capture_output=True, timeout=_TIMEOUT)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def _safe_path_arg(path: str) -> str:
+    # A file named "-all=" would otherwise be parsed as an option.
+    return path if not path.startswith("-") else os.path.join(".", path)
+
+
+def write(path: str, assignments: list[str]) -> bool | None:
+    """Apply raw ExifTool assignments (``-TAG=value``, ``-TAG=``, ``-AllDates+=…``) in place.
+
+    ``-m`` ignores minor warnings (e.g. a tag that does not exist in this file)
+    so one unknown tag does not abort the whole write.
+
+    :return: ``True`` on success, ``None`` on error or ExifTool not found.
+    """
+    if not assignments:
+        return True
+    result = _run(["-m", "-overwrite_original", *assignments, _safe_path_arg(path)])
+    if result is None:
+        return None
+    return True if result.returncode == 0 else None
+
+
+def remove_tags(path: str, keys: list[str], extra: list[str] | None = None) -> bool | None:
+    """Delete specific ``Group:Tag`` keys (as returned by :func:`extract`)."""
+    return write(path, [f"-{key}=" for key in keys] + list(extra or []))
+
+
 def remove(path: str) -> bool | None:
     """Strip all writable metadata from *path* using ExifTool in-place.
 
