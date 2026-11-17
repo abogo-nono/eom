@@ -26,7 +26,11 @@ jobs:
     steps:
       - name: Install git and Qt runtime deps
         run: |
-          apt-get update -qq
+          # Debian 11 left the main mirrors; its packages now live on archive.debian.org.
+          sed -i -e 's|deb.debian.org/debian-security|archive.debian.org/debian-security|' \
+                 -e 's|deb.debian.org/debian|archive.debian.org/debian|' \
+                 -e '/bullseye-updates/d' /etc/apt/sources.list
+          apt-get -o Acquire::Check-Valid-Until=false update -qq
           apt-get install -y --no-install-recommends \
             git binutils \
             libegl1 libxkbcommon0 libdbus-1-3 libgl1
@@ -82,11 +86,16 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          # exiftool.org links the Windows package to SourceForge.
           $page = (Invoke-WebRequest -Uri 'https://exiftool.org/' -UseBasicParsing).Content
           if ($page -match 'exiftool-(\d+\.\d+)_64\.zip') { $ver = $Matches[1] } else { exit 1 }
-          Invoke-WebRequest -Uri "https://exiftool.org/exiftool-${ver}_64.zip" -OutFile exiftool.zip
+          curl.exe -fsSL -o exiftool.zip "https://sourceforge.net/projects/exiftool/files/exiftool-${ver}_64.zip/download"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
           Expand-Archive exiftool.zip -DestinationPath et_tmp
-          Get-ChildItem et_tmp\*.exe | Select-Object -First 1 | Copy-Item -Destination exiftool.exe
+          $dir = Get-ChildItem et_tmp -Directory | Select-Object -First 1
+          Copy-Item (Get-ChildItem $dir.FullName -Filter *.exe | Select-Object -First 1).FullName exiftool.exe
+          Copy-Item (Join-Path $dir.FullName 'exiftool_files') exiftool_files -Recurse
+          .\exiftool.exe -ver
 
       - name: Generate macOS app icon (.icns)
         if: runner.os == 'macOS'

@@ -31,3 +31,7 @@ Thumbs.db
 
 # Stray Qt Designer backup
 app - Copy.ui
+
+# Windows ExifTool bundled by the release build
+exiftool.exe
+exiftool_files/

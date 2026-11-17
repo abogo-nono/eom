@@ -52,7 +52,8 @@ PySide6 desktop app (and CLI) for viewing, exporting, cleaning and editing image
 - **Releases**: push a `v*` tag → [.github/workflows/release.yml](.github/workflows/release.yml) builds
   PyInstaller artifacts for 4 targets and attaches zips to a GitHub Release:
   - `eom-linux-x86_64` — built inside `python:3.10-focal` container (glibc 2.31 → Ubuntu 20.04+)
-  - `eom-windows-x86_64` — built on `windows-2019`; CI downloads `exiftool_64.zip` and bundles it
+  - `eom-windows-x86_64` — CI downloads the ExifTool Windows package (SourceForge) and bundles
+    `exiftool.exe` plus its `exiftool_files/` Perl runtime
   - `eom-macos-x86_64` — built on `macos-13` (Intel); runs on macOS 12+
   - `eom-macos-arm64` — built on `macos-14` (Apple Silicon); runs on macOS 14+
 

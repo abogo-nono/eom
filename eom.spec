@@ -19,7 +19,11 @@ block_cipher = None
 # Use datas (not binaries) — exiftool is a standalone exe, not a shared library.
 # Putting it in binaries causes PyInstaller to analyse it for DLL deps and
 # silently drop it during the binary reclassification pass.
+# Since ExifTool 12.88 the Windows exe is a launcher: it needs the Perl runtime in
+# the exiftool_files/ folder next to it, so both are bundled.
 ET_DATA = [("exiftool.exe", ".")] if os.path.isfile("exiftool.exe") else []
+if ET_DATA and os.path.isdir("exiftool_files"):
+    ET_DATA.append(("exiftool_files", "exiftool_files"))
 
 # macOS prefers .icns; everywhere else .ico works fine.
 if sys.platform == "darwin":
