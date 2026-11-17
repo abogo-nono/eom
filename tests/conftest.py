@@ -15,6 +15,15 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 import exiftool_backend  # noqa: E402 — must come after sys.path insert
+import settings  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _isolated_settings(tmp_path_factory):
+    """Never read or write the developer's real EOM settings."""
+    settings.use_path(tmp_path_factory.mktemp("settings"))
+    yield
+    settings.use_path(None)
 
 
 @pytest.fixture(autouse=True)

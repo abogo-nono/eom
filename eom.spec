@@ -1,7 +1,8 @@
 # PyInstaller spec for EOM. Build with:
 #   pyinstaller eom.spec --noconfirm --clean
 #
-# style.qss is loaded at runtime; app-logo.ico is used as the window icon and
+# style.qss (theme template), translations/*.qm and the settings icons are loaded
+# at runtime; app-logo.ico is used as the window icon and
 # for the taskbar/dock icon on all platforms.  On macOS the CI step converts
 # it to app-logo.icns before invoking PyInstaller.
 
@@ -31,7 +32,14 @@ a = Analysis(
     ["main.py"],
     pathex=["."],
     binaries=[],
-    datas=[("style.qss", "."), ("images/app-logo.ico", "images")] + ET_DATA,
+    datas=[
+        ("style.qss", "."),
+        ("images/app-logo.ico", "images"),
+        ("icons/light/settings.svg", "icons/light"),
+        ("icons/dark/settings.svg", "icons/dark"),
+        ("translations/*.qm", "translations"),
+    ]
+    + ET_DATA,
     hiddenimports=collect_submodules("PySide6"),
     hookspath=[],
     runtime_hooks=[],
