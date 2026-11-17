@@ -1,6 +1,6 @@
 [project]
 name = "eom"
-version = "2.1.0"
+version = "2.2.0"
 description = "Eye On Metadata - desktop app and CLI to view, export, clean and edit file metadata."
 readme = "README.md"
 requires-python = ">=3.10"
